@@ -62,7 +62,7 @@ The controller enforces safety, not the AI. AI output is a recommendation, never
 - [Dependency map](docs/dependency-map.json): machine-readable, used by the controller and the agents ([diagram](docs/dependency-map.mmd))
 - [Baseline](docs/baseline.md): wrk2 steady-state latency
 - [Safety controller and results store](docs/SAFETY.md)
-- [Day 1 demo runbook](docs/demo-day1.md)
+- [Day 1 demo runbook](docs/demo-day1.md) and [checkpoint pitch](docs/pitch-day1.md)
 
 ## Setup
 
