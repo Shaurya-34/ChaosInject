@@ -108,7 +108,9 @@ def main():
     if not repo.exists():
         subprocess.run(["git", "clone", "--filter=blob:none", "--sparse", "--no-checkout",
                         "https://github.com/delimitrou/DeathStarBench.git", str(repo)], check=True)
-        subprocess.run(["git", "-C", str(repo), "sparse-checkout", "set", "hotelReservation"], check=True)
+        subprocess.run(["git", "-C", str(repo), "config", "core.longpaths", "true"], check=True)
+        subprocess.run(["git", "-C", str(repo), "sparse-checkout", "set", "--cone",
+                        "--sparse-index", "hotelReservation"], check=True)
         subprocess.run(["git", "-C", str(repo), "checkout", "--detach", lock["upstream_commit"]], check=True)
     if run("git", "-C", str(repo), "rev-parse", "HEAD").strip() != lock["upstream_commit"]:
         raise SystemExit("Existing checkout differs from lock; use a fresh .runtime directory")
@@ -135,7 +137,7 @@ def main():
     print("Next: cd", runtime)
     print("docker compose pull --ignore-buildable")
     print("docker compose up -d --build")
-    print("python3 ../smoke.py")
+    print(("python" if os.name == "nt" else "python3") + " ../smoke.py")
 
 
 if __name__ == "__main__":
