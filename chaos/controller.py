@@ -46,9 +46,21 @@ def check_policy(exp, policy):
         raise PolicyError(f"duration {exp['duration_s']}s exceeds max {policy['max_duration_s']}s")
 
 
+def _fmt(phase, s):
+    status = s["status"] if s["status"] is not None else "---"
+    return f"  [{phase:<8}] {'ok  ' if s['ok'] else 'FAIL'} status={status} {s['latency_ms']:>7.1f}ms"
+
+
 def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, sleep=time.sleep,
-        check_baseline=hooks.check_baseline):
+        check_baseline=hooks.check_baseline, log=lambda msg: None):
     check_policy(exp, policy)
+
+    def say(msg):
+        try:
+            log(msg)
+        except Exception:
+            pass  # output problems (e.g. a closed pipe) must never block a restore
+
     hooks.reset_state()  # fresh safety window for every run
     fault = fault or FAULTS[exp["fault"]]()
     url, interval = exp["probe_url"], exp["interval_s"]
@@ -58,6 +70,7 @@ def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, 
 
     for _ in range(exp["baseline_samples"]):
         record["baseline"].append(probe_fn(url))
+        say(_fmt("baseline", record["baseline"][-1]))
         sleep(interval)
 
     # Pre-flight: never inject into an app that is already unhealthy.
@@ -70,6 +83,7 @@ def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, 
 
     record["fault_started"] = time.time()
     try:
+        say(f"injecting {exp['fault']} into {exp['target']} for up to {exp['duration_s']}s")
         fault.inject(exp["target"])
         end = time.monotonic() + exp["duration_s"]
         while time.monotonic() < end:
@@ -78,24 +92,29 @@ def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, 
                 break
             sample = probe_fn(url)
             record["during"].append(sample)
+            say(_fmt("fault", sample))
             reason = should_stop(sample, record["baseline"], policy)
             if reason:
                 record["stop_reason"] = f"safety: {reason}"
+                say(f"SAFETY STOP: {reason}")
                 break
             sleep(interval)
         else:
             record["stop_reason"] = "duration elapsed"
     except KeyboardInterrupt:
         record["stop_reason"] = "kill switch (Ctrl+C)"
+        say("KILL SWITCH: Ctrl+C")
     finally:
-        fault.restore(exp["target"])
+        fault.restore(exp["target"])  # restore first: nothing may run before it
         record["fault_ended"] = time.time()
+        say(f"restored {exp['target']}")
 
     restored_at = time.monotonic()
     recovery_end = min(deadline, restored_at + policy["recovery_timeout_s"])
     while time.monotonic() < recovery_end:
         sample = probe_fn(url)
         record["recovery"].append(sample)
+        say(_fmt("recovery", sample))
         if sample["ok"]:
             record["recovered"] = True
             record["recovery_s"] = round(time.monotonic() - restored_at, 2)
@@ -111,7 +130,7 @@ def main(argv):
     exp = json.loads(Path(argv[1]).read_text())
     policy = json.loads(POLICY_PATH.read_text())
     try:
-        record = run(exp, policy)
+        record = run(exp, policy, log=lambda msg: print(msg, flush=True))
     except PolicyError as e:
         sys.exit(f"refused: {e}")
     path = hooks.save_result(record)

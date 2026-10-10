@@ -64,6 +64,29 @@ class ControllerTest(unittest.TestCase):
         self.assertEqual(len(r["during"]), 1)
         self.assertEqual(f.calls, ["inject", "restore"])
 
+    def test_live_log_shows_each_phase_and_safety_stop(self):
+        f = FakeFault()
+        lines = []
+        run({**EXP, "duration_s": 30}, POLICY, fault=f, probe_fn=probe_for(f),
+            should_stop=lambda s, b, p: None if s["ok"] else "error rate", log=lines.append)
+        text = "\n".join(lines)
+        self.assertEqual(text.count("[baseline"), EXP["baseline_samples"])
+        self.assertIn("injecting container_stop into web", text)
+        self.assertIn("[fault   ] FAIL", text)
+        self.assertIn("SAFETY STOP: error rate", text)
+        self.assertIn("restored web", text)
+        self.assertIn("[recovery] ok", text)
+
+    def test_broken_log_never_blocks_restore(self):
+        f = FakeFault()
+
+        def broken(msg):
+            raise BrokenPipeError("stdout closed")
+
+        r = run(EXP, POLICY, fault=f, probe_fn=probe_for(f), should_stop=NEVER_STOP, log=broken)
+        self.assertEqual(f.calls, ["inject", "restore"])
+        self.assertTrue(r["recovered"])
+
     def test_hard_timeout_stops_and_restores(self):
         f = FakeFault()
         r = run({**EXP, "duration_s": 30}, {**POLICY, "hard_timeout_s": 0.1}, fault=f, probe_fn=probe_for(f),
