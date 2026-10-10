@@ -1,0 +1,11 @@
+{
+  "name": "dummy-web-delay",
+  "target": "chaos-dummy-web",
+  "fault": "network_delay",
+  "delay_ms": 200,
+  "jitter_ms": 20,
+  "duration_s": 20,
+  "probe_url": "http://127.0.0.1:8081/",
+  "baseline_samples": 5,
+  "interval_s": 1
+}

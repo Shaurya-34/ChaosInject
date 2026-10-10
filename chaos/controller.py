@@ -84,7 +84,7 @@ def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, 
             pass  # output problems (e.g. a closed pipe) must never block a restore
 
     hooks.reset_state()  # fresh safety window for every run
-    fault = fault or FAULTS[exp["fault"]]()
+    fault = fault or FAULTS[exp["fault"]](exp)
     url, interval = exp["probe_url"], exp["interval_s"]
     deadline = time.monotonic() + policy["hard_timeout_s"]
     record = {"experiment": exp, "policy": policy, "baseline": [], "during": [], "recovery": [],
