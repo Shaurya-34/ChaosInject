@@ -1,6 +1,9 @@
+import json
 import subprocess
+import tempfile
 import time
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from chaos import controller, faults, hooks
@@ -64,6 +67,80 @@ class ControllerTest(unittest.TestCase):
         self.assertEqual(len(r["during"]), 1)
         self.assertEqual(f.calls, ["inject", "restore"])
 
+    def test_live_log_shows_each_phase_and_safety_stop(self):
+        f = FakeFault()
+        lines = []
+        run({**EXP, "duration_s": 30}, POLICY, fault=f, probe_fn=probe_for(f),
+            should_stop=lambda s, b, p: None if s["ok"] else "error rate", log=lines.append)
+        text = "\n".join(lines)
+        self.assertEqual(text.count("[baseline"), EXP["baseline_samples"])
+        self.assertIn("injecting container_stop into web", text)
+        self.assertIn("[fault   ] FAIL", text)
+        self.assertIn("SAFETY STOP: error rate", text)
+        self.assertIn("restored web", text)
+        self.assertIn("[recovery] ok", text)
+
+    def test_marker_exists_during_fault_and_is_removed_after_restore(self):
+        f = FakeFault()
+        with tempfile.TemporaryDirectory() as d:
+            marker = Path(d) / "results" / ".active_fault.json"
+            seen = []
+            f.inject = lambda target: (seen.append(json.loads(marker.read_text())), setattr(f, "down", True))
+            run(EXP, POLICY, fault=f, probe_fn=probe_for(f), should_stop=NEVER_STOP, marker=marker)
+            self.assertEqual(seen[0]["target"], "web")
+            self.assertEqual(seen[0]["fault"], "container_stop")
+            self.assertFalse(marker.exists())
+
+    def test_marker_kept_when_restore_fails(self):
+        f = FakeFault()
+
+        def fail(target):
+            raise RuntimeError("docker start failed")
+
+        f.restore = fail
+        with tempfile.TemporaryDirectory() as d:
+            marker = Path(d) / ".active_fault.json"
+            with self.assertRaises(RuntimeError):
+                run(EXP, POLICY, fault=f, probe_fn=probe_for(f), should_stop=NEVER_STOP, marker=marker)
+            self.assertTrue(marker.exists())
+
+    def test_recover_abandoned_restores_allowlisted_target(self):
+        restored = []
+
+        class Fault:
+            def restore(self, target):
+                restored.append(target)
+
+        with tempfile.TemporaryDirectory() as d:
+            marker = Path(d) / ".active_fault.json"
+            marker.write_text(json.dumps({"target": "web", "fault": "container_stop"}))
+            got = controller.recover_abandoned(marker, POLICY, faults={"container_stop": Fault}, log=lambda m: None)
+            self.assertEqual(got, "web")
+            self.assertEqual(restored, ["web"])
+            self.assertFalse(marker.exists())
+
+    def test_recover_abandoned_refuses_non_allowlisted_target(self):
+        with tempfile.TemporaryDirectory() as d:
+            marker = Path(d) / ".active_fault.json"
+            marker.write_text(json.dumps({"target": "someone-elses-db", "fault": "container_stop"}))
+            with self.assertRaises(PolicyError):
+                controller.recover_abandoned(marker, POLICY, faults={"container_stop": FakeFault}, log=lambda m: None)
+            self.assertTrue(marker.exists())
+
+    def test_recover_abandoned_without_marker_does_nothing(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertIsNone(controller.recover_abandoned(Path(d) / "none.json", POLICY, log=lambda m: None))
+
+    def test_broken_log_never_blocks_restore(self):
+        f = FakeFault()
+
+        def broken(msg):
+            raise BrokenPipeError("stdout closed")
+
+        r = run(EXP, POLICY, fault=f, probe_fn=probe_for(f), should_stop=NEVER_STOP, log=broken)
+        self.assertEqual(f.calls, ["inject", "restore"])
+        self.assertTrue(r["recovered"])
+
     def test_hard_timeout_stops_and_restores(self):
         f = FakeFault()
         r = run({**EXP, "duration_s": 30}, {**POLICY, "hard_timeout_s": 0.1}, fault=f, probe_fn=probe_for(f),
@@ -120,7 +197,8 @@ class ControllerTest(unittest.TestCase):
     def test_network_delay_inject_calls_docker(self):
         exp = {"delay_ms": 150, "jitter_ms": 15, "duration_s": 10}
         f = faults.NetworkDelay(exp)
-        with mock.patch.object(faults.subprocess, "run") as m:
+        with mock.patch.object(faults.subprocess, "run") as m, \
+             mock.patch.object(f, "_qdisc", return_value="qdisc netem 1: root delay 150ms"):
             f.inject("web")
         # Ensure timeout was passed
         self.assertEqual(m.call_args.kwargs["timeout"], faults.DOCKER_TIMEOUT_S)
@@ -131,6 +209,16 @@ class ControllerTest(unittest.TestCase):
         self.assertIn(faults.TC_IMAGE, cmd)
         self.assertIn("150", cmd)
         self.assertIn("15", cmd)
+
+    def test_network_delay_inject_netem_never_appears_raises(self):
+        f = faults.NetworkDelay()
+        times = [0.0, 25.0]
+        with mock.patch.object(faults.subprocess, "run", return_value=mock.Mock(returncode=0, stdout="")), \
+             mock.patch.object(f, "_qdisc", return_value="qdisc noqueue 0: root"), \
+             mock.patch.object(faults.time, "monotonic", side_effect=lambda: times.pop(0) if times else 30.0), \
+             mock.patch.object(faults.time, "sleep"):
+            with self.assertRaises(faults.InjectError):
+                f.inject("web")
 
     def test_network_delay_restore_stops_gracefully(self):
         f = faults.NetworkDelay()

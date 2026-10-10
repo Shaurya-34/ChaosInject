@@ -4,12 +4,18 @@ import subprocess
 import time
 
 DOCKER_TIMEOUT_S = 30  # a hung docker call must not hang the controller
+INJECT_TIMEOUT_S = 20  # wait up to this long for netem rule to appear
 PUMBA_IMAGE = "gaiaadm/pumba:0.9.0"
 TC_IMAGE = "gaiadocker/iproute2:3.3"
 
 
 class CleanupError(Exception):
     """Raised when fault cleanup / verification fails."""
+    pass
+
+
+class InjectError(Exception):
+    """Raised when a fault never becomes active."""
     pass
 
 
@@ -49,6 +55,19 @@ class NetworkDelay:
     def pumba_name(self, target):
         return f"pumba_delay_{target}"
 
+    def _qdisc(self, target):
+        res = subprocess.run([
+            "docker", "run", "--rm",
+            f"--net=container:{target}",
+            "--cap-add", "NET_ADMIN",
+            "--entrypoint", "",
+            TC_IMAGE,
+            "tc", "qdisc", "show", "dev", "eth0",
+        ], capture_output=True, text=True, timeout=DOCKER_TIMEOUT_S)
+        if res.returncode != 0:
+            raise CleanupError(f"tc qdisc show failed on {target}: {res.stderr.strip()}")
+        return res.stdout
+
     def inject(self, target):
         cname = self.pumba_name(target)
         # Remove any lingering pumba container for this target first
@@ -68,7 +87,11 @@ class NetworkDelay:
             "--jitter", str(self.jitter_ms),
             target,
         )
-        time.sleep(2)
+        deadline = time.monotonic() + INJECT_TIMEOUT_S
+        while "netem" not in self._qdisc(target):
+            if time.monotonic() > deadline:
+                raise InjectError(f"netem delay never appeared on {target} within {INJECT_TIMEOUT_S}s")
+            time.sleep(1)
 
     def restore(self, target):
         cname = self.pumba_name(target)
@@ -84,20 +107,8 @@ class NetworkDelay:
             pass
 
         # 3. Verify netem cleanup on target container
-        check_cmd = [
-            "docker", "run", "--rm",
-            f"--net=container:{target}",
-            "--cap-add", "NET_ADMIN",
-            "--entrypoint", "",
-            TC_IMAGE,
-            "tc", "qdisc", "show", "dev", "eth0",
-        ]
-        res = subprocess.run(check_cmd, capture_output=True, text=True, timeout=DOCKER_TIMEOUT_S)
-        if res.returncode != 0:
-            raise CleanupError(
-                f"Verification command failed on {target} (rc={res.returncode}): {res.stderr.strip()}"
-            )
-        if "netem" in res.stdout:
+        out = self._qdisc(target)
+        if "netem" in out:
             # If netem is still there, remove it explicitly using _docker
             try:
                 _docker(
@@ -112,12 +123,8 @@ class NetworkDelay:
                 raise CleanupError(f"Failed to remove netem qdisc from {target}: {e}") from e
 
             # Verify it is gone
-            res2 = subprocess.run(check_cmd, capture_output=True, text=True, timeout=DOCKER_TIMEOUT_S)
-            if res2.returncode != 0:
-                raise CleanupError(
-                    f"Post-removal verification failed on {target} (rc={res2.returncode}): {res2.stderr.strip()}"
-                )
-            if "netem" in res2.stdout:
+            out2 = self._qdisc(target)
+            if "netem" in out2:
                 raise CleanupError(f"netem qdisc still present on {target} after removal")
 
 
