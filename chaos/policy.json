@@ -3,5 +3,12 @@
   "allowed_faults": ["container_stop", "network_delay"],
   "max_duration_s": 60,
   "hard_timeout_s": 120,
-  "recovery_timeout_s": 30
+  "recovery_timeout_s": 30,
+  "window_size": 10,
+  "min_samples": 3,
+  "max_error_rate": 0.5,
+  "max_consecutive_failures": 5,
+  "max_latency_ms": 2000,
+  "latency_multiplier": 5.0,
+  "latency_floor_ms": 200
 }

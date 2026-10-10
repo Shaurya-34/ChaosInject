@@ -45,4 +45,4 @@ _Coming soon._
 
 ## License
 
-TBD (see #1).
+MIT. See [LICENSE](LICENSE).
