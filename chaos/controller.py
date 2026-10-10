@@ -48,7 +48,7 @@ def check_policy(exp, policy):
 
 def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, sleep=time.sleep):
     check_policy(exp, policy)
-    fault = fault or FAULTS[exp["fault"]]()
+    fault = fault or FAULTS[exp["fault"]](exp)
     url, interval = exp["probe_url"], exp["interval_s"]
     deadline = time.monotonic() + policy["hard_timeout_s"]
     record = {"experiment": exp, "policy": policy, "baseline": [], "during": [], "recovery": [],

@@ -107,6 +107,37 @@ class ControllerTest(unittest.TestCase):
         self.assertFalse(r["recovered"])
         self.assertIsNone(r["recovery_s"])
 
+    def test_network_delay_params(self):
+        exp = {"delay_ms": 250, "jitter_ms": 25, "duration_s": 15}
+        f = faults.NetworkDelay(exp)
+        self.assertEqual(f.delay_ms, 250)
+        self.assertEqual(f.jitter_ms, 25)
+        self.assertEqual(f.duration_s, 15)
+
+    def test_network_delay_inject_calls_docker(self):
+        exp = {"delay_ms": 150, "jitter_ms": 15, "duration_s": 10}
+        f = faults.NetworkDelay(exp)
+        with mock.patch.object(faults.subprocess, "run") as m:
+            f.inject("web")
+        # Ensure timeout was passed
+        self.assertEqual(m.call_args.kwargs["timeout"], faults.DOCKER_TIMEOUT_S)
+        cmd = m.call_args.args[0]
+        self.assertEqual(cmd[0], "docker")
+        self.assertIn("pumba_delay_web", cmd)
+        self.assertIn(faults.PUMBA_IMAGE, cmd)
+        self.assertIn(faults.TC_IMAGE, cmd)
+        self.assertIn("150", cmd)
+        self.assertIn("15", cmd)
+
+    def test_network_delay_restore_stops_gracefully(self):
+        f = faults.NetworkDelay()
+        with mock.patch.object(faults.subprocess, "run") as m:
+            f.restore("web")
+        # Should stop first, then rm
+        calls = [c.args[0] for c in m.call_args_list]
+        self.assertTrue(any(c[1] == "stop" and "pumba_delay_web" in c for c in calls))
+        self.assertTrue(any(c[1] == "rm" and "pumba_delay_web" in c for c in calls))
+
 
 if __name__ == "__main__":
     unittest.main()

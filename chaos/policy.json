@@ -1,6 +1,6 @@
 {
   "allowed_targets": ["chaos-dummy-web"],
-  "allowed_faults": ["container_stop"],
+  "allowed_faults": ["container_stop", "network_delay"],
   "max_duration_s": 60,
   "hard_timeout_s": 120,
   "recovery_timeout_s": 30
