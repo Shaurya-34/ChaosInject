@@ -132,12 +132,51 @@ class ControllerTest(unittest.TestCase):
     def test_network_delay_restore_stops_gracefully(self):
         f = faults.NetworkDelay()
         with mock.patch.object(faults.subprocess, "run") as m:
+            m.return_value = mock.Mock(stdout="qdisc noqueue 0: dev eth0 root", returncode=0)
             f.restore("web")
-        # Should stop first, then rm
         calls = [c.args[0] for c in m.call_args_list]
         self.assertTrue(any(c[1] == "stop" and "pumba_delay_web" in c for c in calls))
         self.assertTrue(any(c[1] == "rm" and "pumba_delay_web" in c for c in calls))
 
+    def test_network_delay_restore_removes_lingering_netem(self):
+        f = faults.NetworkDelay()
+        # First check returns netem, second check returns clean
+        check1 = mock.Mock(stdout="qdisc netem 1: root refcnt 2 delay 200.0ms", returncode=0)
+        check2 = mock.Mock(stdout="qdisc pfifo_fast 0: root", returncode=0)
+        del_call = mock.Mock(stdout="", returncode=0)
+        generic_ok = mock.Mock(stdout="", returncode=0)
+
+        def mock_run(cmd, *args, **kwargs):
+            if "tc" in cmd and "show" in cmd:
+                if not getattr(mock_run, "called_del", False):
+                    return check1
+                return check2
+            if "tc" in cmd and "del" in cmd:
+                mock_run.called_del = True
+                return del_call
+            return generic_ok
+
+        with mock.patch.object(faults.subprocess, "run", side_effect=mock_run):
+            f.restore("web")
+        self.assertTrue(getattr(mock_run, "called_del", False))
+
+    def test_network_delay_restore_removal_fails_raises(self):
+        f = faults.NetworkDelay()
+        # Check returns netem, and tc del raises
+        check = mock.Mock(stdout="qdisc netem 1: root refcnt 2 delay 200.0ms", returncode=0)
+
+        def mock_run(cmd, *args, **kwargs):
+            if "tc" in cmd and "show" in cmd:
+                return check
+            if "tc" in cmd and "del" in cmd:
+                raise subprocess.CalledProcessError(1, cmd, stderr="RTNETLINK answers: No such file")
+            return mock.Mock(stdout="", returncode=0)
+
+        with mock.patch.object(faults.subprocess, "run", side_effect=mock_run):
+            with self.assertRaises(faults.CleanupError):
+                f.restore("web")
+
 
 if __name__ == "__main__":
     unittest.main()
+
