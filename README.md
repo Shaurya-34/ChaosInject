@@ -55,6 +55,7 @@ The controller enforces safety, not the AI. AI output is a recommendation, never
 |---|---|
 | Stop `memcached-rate` | `/hotels` fails, and **the `rate` service crashes**: it calls `log.Panic` on any cache error (`services/rate/server.go:114`). It doesn't recover until restarted by hand. The same pattern exists in profile, reservation and review |
 | Stop `geo` | `/hotels` fails (a hard dependency) and recovers about 1s after `geo` returns |
+| 200 ms network delay on `rate` | `/hotels` goes from 30–50 ms to **1.3–1.9 s, then times out (>2 s)**: one slow backend amplifies 6–10× at the edge. The latency/consecutive-failure safety stop fires; it recovers instantly once the delay is removed |
 
 ## Docs
 
