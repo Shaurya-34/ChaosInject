@@ -187,19 +187,19 @@ Docker and Compose are required on the host; the image provides the Go build env
 
 Jaeger receives application traces at jaeger:6831 and publishes its UI on 16686. Compose also publishes Consul ports 8300, 8400, 8500 and host UDP 8600 mapped to container UDP 53, exactly as written.
 
-## Teammate CPU architecture check — 3 of 5 confirmed
+## Teammate CPU architecture check — 5 of 5 confirmed
 
-Updated 10 October 2026. The five teammates below are identified from the project's Day 1 issue assignments. The task requester confirmed three teammates' OS/chip or architecture details on this date; these are reported hardware confirmations, not measurements run by this inspection. AyushVoid and Shaurya-34 remain pending, so the CPU checklist item in [issue #2](https://github.com/Shaurya-34/Hackathon/issues/2) is not yet complete.
+Updated 10 October 2026. The five teammates below are identified from the project's Day 1 issue assignments. The task requester confirmed all five teammates' OS/chip or architecture details on this date; these are reported hardware confirmations, not measurements run by this inspection. The teammate CPU architecture checklist item in [issue #2](https://github.com/Shaurya-34/Hackathon/issues/2) is complete.
 
-| Teammate | Known OS | Host CPU / architecture | Evidence and next check |
+| Teammate | Known OS | Host CPU / architecture | Confirmation source/date |
 |---|---|---|---|
-| AyushVoid | Not confirmed | Pending | Assigned [#2](https://github.com/Shaurya-34/Hackathon/issues/2) and [#3](https://github.com/Shaurya-34/Hackathon/issues/3); needs host CPU confirmation |
+| AyushVoid | Windows/Linux | amd64 (x86_64); CPU model not supplied | Architecture confirmed by task requester, 10 October 2026 |
 | YashInani07 | macOS Sequoia | Apple M2 — Apple Silicon / arm64 | Confirmed by task requester, 10 October 2026 |
 | krrishh17 | macOS | Apple M5 — Apple Silicon / arm64 | Confirmed by task requester, 10 October 2026 |
 | yashparikh26 | Windows/Linux | amd64 (x86_64); CPU model not supplied | Architecture confirmed by task requester, 10 October 2026 |
-| Shaurya-34 | Not confirmed | Pending | Assigned [#7](https://github.com/Shaurya-34/Hackathon/issues/7) and [#10](https://github.com/Shaurya-34/Hackathon/issues/10); needs host CPU confirmation |
+| Shaurya-34 | Windows/Linux | amd64 (x86_64); CPU model not supplied | Architecture confirmed by task requester, 10 October 2026 |
 
-For the two remaining teammates, record the host architecture and confirmation source/date; include the CPU model when available. These checks can also capture runtime details separately:
+For future hardware changes or independent runtime verification, use the following checks:
 
 - **macOS:** Apple menu → About This Mac → report only **Chip** or **Processor**. An Apple M-series chip means Apple Silicon / arm64; an Intel processor means amd64. macOS alone is insufficient, and a terminal running under Rosetta can report x86_64 on Apple Silicon.
 - **Linux:** report the Architecture and Model name from `lscpu`; x86_64 maps to amd64, aarch64 to arm64.
@@ -208,7 +208,7 @@ For the two remaining teammates, record the host architecture and confirmation s
 
 Issue #2 states that the prebuilt application image is amd64-only; this report has not independently inspected its registry manifest. For an Apple Silicon host, the deployment needs a compatible source build or amd64 emulation. The source Dockerfile sets GOOS=linux but does not hard-code GOARCH. Confirm support for the pinned images and record whether the actual run uses native arm64 or emulated amd64; do not count an emulator's architecture as the physical chip.
 
-**Confirmed architecture split:** YashInani07 and krrishh17 use Apple Silicon / arm64; yashparikh26 uses amd64. AyushVoid and Shaurya-34 still need host architecture confirmation. Docker daemon architecture and native-versus-emulated execution have not been verified for these machines.
+**Confirmed architecture split:** YashInani07 and krrishh17 use Apple Silicon / arm64 (2 teammates); AyushVoid, yashparikh26, and Shaurya-34 use amd64 (3 teammates). Docker daemon architecture and native-versus-emulated execution have not been verified for these machines.
 
 ## Runtime caveats and suggested corrections
 
