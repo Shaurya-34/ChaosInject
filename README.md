@@ -35,7 +35,7 @@ The controller enforces safety, not the AI. AI output is a recommendation, never
 
 ## Status
 
-- **Sample app:** TBD
+- **Sample app:** [DeathStarBench Hotel Reservation](https://github.com/delimitrou/DeathStarBench/tree/master/hotelReservation) (Apache-2.0). Go gRPC microservices with Consul, memcached, MongoDB, Jaeger tracing and a wrk2 load generator, all on Docker Compose.
 - **Chaos tool:** evaluating Pumba / ChaosLabs
 - **Progress:** tracked on the [project board](https://github.com/users/Shaurya-34/projects/2)
 
