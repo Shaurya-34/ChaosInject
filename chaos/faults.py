@@ -2,9 +2,12 @@
 
 import subprocess
 
+DOCKER_TIMEOUT_S = 30  # a hung docker call must not hang the controller
+
 
 def _docker(*args):
-    subprocess.run(["docker", *args], check=True, capture_output=True, text=True)
+    subprocess.run(["docker", *args], check=True, capture_output=True, text=True,
+                   timeout=DOCKER_TIMEOUT_S)
 
 
 class ContainerStop:

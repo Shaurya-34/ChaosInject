@@ -1,7 +1,13 @@
+import subprocess
 import time
 import unittest
+from unittest import mock
 
+from chaos import faults
 from chaos.controller import PolicyError, run
+
+# These tests check controller mechanics, not safety rules, so the safety hook never stops.
+NEVER_STOP = lambda sample, baseline, policy: None
 
 POLICY = {"allowed_targets": ["web"], "allowed_faults": ["container_stop"],
           "max_duration_s": 60, "hard_timeout_s": 120, "recovery_timeout_s": 1}
@@ -42,7 +48,7 @@ class ControllerTest(unittest.TestCase):
 
     def test_runs_full_cycle_and_recovers(self):
         f = FakeFault()
-        r = run(EXP, POLICY, fault=f, probe_fn=probe_for(f))
+        r = run(EXP, POLICY, fault=f, probe_fn=probe_for(f), should_stop=NEVER_STOP)
         self.assertEqual(f.calls, ["inject", "restore"])
         self.assertEqual(r["stop_reason"], "duration elapsed")
         self.assertTrue(all(s["ok"] for s in r["baseline"]))
@@ -59,9 +65,26 @@ class ControllerTest(unittest.TestCase):
 
     def test_hard_timeout_stops_and_restores(self):
         f = FakeFault()
-        r = run({**EXP, "duration_s": 30}, {**POLICY, "hard_timeout_s": 0.1}, fault=f, probe_fn=probe_for(f))
+        r = run({**EXP, "duration_s": 30}, {**POLICY, "hard_timeout_s": 0.1}, fault=f, probe_fn=probe_for(f),
+                should_stop=NEVER_STOP)
         self.assertEqual(r["stop_reason"], "hard timeout")
         self.assertEqual(f.calls, ["inject", "restore"])
+
+    def test_docker_calls_have_timeout(self):
+        with mock.patch.object(faults.subprocess, "run") as m:
+            faults.ContainerStop().inject("web")
+        self.assertEqual(m.call_args.kwargs["timeout"], faults.DOCKER_TIMEOUT_S)
+
+    def test_hung_inject_still_restores(self):
+        f = FakeFault()
+
+        def hang(target):
+            raise subprocess.TimeoutExpired("docker stop", faults.DOCKER_TIMEOUT_S)
+
+        f.inject = hang
+        with self.assertRaises(subprocess.TimeoutExpired):
+            run(EXP, POLICY, fault=f, probe_fn=probe_for(f), should_stop=NEVER_STOP)
+        self.assertEqual(f.calls, ["restore"])
 
     def test_kill_switch_restores(self):
         f = FakeFault()
