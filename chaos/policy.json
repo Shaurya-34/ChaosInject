@@ -1,5 +1,5 @@
 {
-  "allowed_targets": ["chaos-dummy-web", "hotel-sandbox-memcached-rate-1", "hotel-sandbox-geo-1"],
+  "allowed_targets": ["chaos-dummy-web", "hotel-sandbox-memcached-rate-1", "hotel-sandbox-geo-1", "hotel-sandbox-rate-1"],
   "allowed_faults": ["container_stop", "network_delay"],
   "max_duration_s": 60,
   "hard_timeout_s": 120,

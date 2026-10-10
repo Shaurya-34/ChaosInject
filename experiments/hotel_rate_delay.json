@@ -1,0 +1,11 @@
+{
+  "name": "hotel-rate-delay",
+  "target": "hotel-sandbox-rate-1",
+  "fault": "network_delay",
+  "delay_ms": 200,
+  "jitter_ms": 20,
+  "duration_s": 20,
+  "probe_url": "http://127.0.0.1:5000/hotels?inDate=2015-04-09&outDate=2015-04-10&lat=38.0235&lon=-122.095",
+  "baseline_samples": 5,
+  "interval_s": 1
+}
