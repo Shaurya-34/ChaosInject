@@ -24,6 +24,15 @@ Dependency mapper ──► Experiment controller ──► Chaos tool (fault in
                      Results store ──► AI planner & analysis (Day 2)
 ```
 
+| Component | Where |
+|---|---|
+| Sample app sandbox | `sandbox/hotel/` (DeathStarBench Hotel Reservation, 24 containers) |
+| Dependency map | `docs/dependency-map.json` (+ `.mmd` diagram) |
+| Experiment controller + health probes | `chaos/controller.py` |
+| Fault types | `chaos/faults.py` (container stop; network delay via Pumba in #28) |
+| Safety rules + results store | `chaos/hooks.py`, thresholds in `chaos/policy.json` |
+| AI planner / analysis | Day 2: #11, #13 |
+
 The controller enforces safety, not the AI. AI output is a recommendation, never a command.
 
 ## Safety rules
@@ -36,8 +45,24 @@ The controller enforces safety, not the AI. AI output is a recommendation, never
 ## Status
 
 - **Sample app:** [DeathStarBench Hotel Reservation](https://github.com/delimitrou/DeathStarBench/tree/master/hotelReservation) (Apache-2.0). Go gRPC microservices with Consul, memcached, MongoDB, Jaeger tracing and a wrk2 load generator, all on Docker Compose.
-- **Chaos tool:** evaluating Pumba / ChaosLabs
+- **Chaos tool:** container stop via the Docker CLI; network faults via [Pumba](https://github.com/alexei-led/pumba) (chosen in #4; network delay lands with #28)
+- **Day 1:** sandbox running, dependency map, baseline, real faults injected, safety stop tested. Demo runbook: [docs/demo-day1.md](docs/demo-day1.md)
 - **Progress:** tracked on the [project board](https://github.com/users/Shaurya-34/projects/2)
+
+### Findings so far
+
+| Experiment | Result |
+|---|---|
+| Stop `memcached-rate` | `/hotels` fails, and **the `rate` service crashes**: it calls `log.Panic` on any cache error (`services/rate/server.go:114`). It doesn't recover until restarted by hand. The same pattern exists in profile, reservation and review |
+| Stop `geo` | `/hotels` fails (a hard dependency) and recovers about 1s after `geo` returns |
+
+## Docs
+
+- [Dependency findings](docs/hotel-reservation-dependencies.md): services, call graph, config, known defects
+- [Dependency map](docs/dependency-map.json): machine-readable, used by the controller and the agents ([diagram](docs/dependency-map.mmd))
+- [Baseline](docs/baseline.md): wrk2 steady-state latency
+- [Safety controller and results store](docs/SAFETY.md)
+- [Day 1 demo runbook](docs/demo-day1.md)
 
 ## Setup
 
@@ -192,14 +217,44 @@ validated with standalone Docker Compose **v2.29.7**. Run the focused tests with
 python -m unittest discover -s tests -p 'test_hotel_setup.py' -v
 ```
 
-**End-to-end execution of this exact locked setup is still pending:** the editing
-environment has no Docker CLI/daemon or Docker socket. Do not mark issue #3's
-runtime checks complete until the smoke script passes on a teammate's machine.
+**Verified end to end:** all 7 smoke checks pass on Windows 11 / Intel (amd64,
+Docker Desktop) from a fresh clone ([PR #30](https://github.com/Shaurya-34/Hackathon/pull/30)).
+The stack also runs on Apple Silicon (M2, M5) with amd64 emulation.
 
-[Yash's earlier issue comment](https://github.com/Shaurya-34/Hackathon/issues/3#issuecomment-6095008331)
-reports a successful search and reachable Jaeger in his local setup. It does
-not identify these image digests or confirm recommendation, login, and
-reservation for this locked configuration.
+## Running experiments
+
+The controller injects one fault into one **allowlisted** container, probes the app once a
+second, stops early when a safety rule trips, restores the fault, and verifies recovery.
+
+```powershell
+# Quick start without the hotel stack (tiny nginx target):
+docker compose -f sandbox/dummy/docker-compose.yml up -d
+python -m chaos.controller experiments/dummy_web_stop.json
+
+# Real app (stack from Setup above must be running):
+python -m chaos.controller experiments/hotel_geo_stop.json
+python -m chaos.controller experiments/hotel_memcached_rate_stop.json
+
+# Past runs:
+python -m chaos.hooks list
+python -m chaos.hooks show <run_id>
+```
+
+- **Experiments** (`experiments/*.json`): target, fault, duration, probe URL, baseline samples.
+- **Policy** (`chaos/policy.json`): allowed targets and faults, max duration, hard timeout, and
+  safety thresholds. Experiments can't change it. See [docs/SAFETY.md](docs/SAFETY.md).
+- **Before injecting**, the controller refuses if the baseline shows the app is already unhealthy.
+- **Kill switch:** Ctrl+C. The fault is always restored.
+- **If the controller is force-killed** mid-run (terminal closed), the fault stays in place.
+  `python -m chaos.controller --recover` restores it; the next experiment also does this automatically.
+- **Results** are saved to `results/` (gitignored): config, every probe sample, stop reason and
+  recovery time, with a computed summary.
+
+Tests:
+
+```powershell
+python -m unittest discover -s tests -t .
+```
 
 ## License
 
