@@ -187,19 +187,19 @@ Docker and Compose are required on the host; the image provides the Go build env
 
 Jaeger receives application traces at jaeger:6831 and publishes its UI on 16686. Compose also publishes Consul ports 8300, 8400, 8500 and host UDP 8600 mapped to container UDP 53, exactly as written.
 
-## Teammate CPU architecture check — pending confirmation
+## Teammate CPU architecture check — 3 of 5 confirmed
 
-Checked 10 October 2026. The five teammates below are identified from the project's Day 1 issue assignments. No CPU model or architecture confirmation was found in the repository files, issue bodies/comments, or PR history reviewed. The checked box in [issue #2](https://github.com/Shaurya-34/Hackathon/issues/2) does not supply that evidence; this checklist item remains incomplete.
+Updated 10 October 2026. The five teammates below are identified from the project's Day 1 issue assignments. The task requester confirmed three teammates' OS/chip or architecture details on this date; these are reported hardware confirmations, not measurements run by this inspection. AyushVoid and Shaurya-34 remain pending, so the CPU checklist item in [issue #2](https://github.com/Shaurya-34/Hackathon/issues/2) is not yet complete.
 
 | Teammate | Known OS | Host CPU / architecture | Evidence and next check |
 |---|---|---|---|
 | AyushVoid | Not confirmed | Pending | Assigned [#2](https://github.com/Shaurya-34/Hackathon/issues/2) and [#3](https://github.com/Shaurya-34/Hackathon/issues/3); needs host CPU confirmation |
-| YashInani07 | macOS, reported in the task follow-up | Pending: Intel amd64 or Apple Silicon arm64 | Assigned [#3](https://github.com/Shaurya-34/Hackathon/issues/3) and [#4](https://github.com/Shaurya-34/Hackathon/issues/4); needs the Chip/Processor field from About This Mac |
-| krrishh17 | Not confirmed | Pending | Assigned [#5](https://github.com/Shaurya-34/Hackathon/issues/5) and [#6](https://github.com/Shaurya-34/Hackathon/issues/6); needs host CPU confirmation |
-| yashparikh26 | Not confirmed | Pending | Assigned [#8](https://github.com/Shaurya-34/Hackathon/issues/8) and [#9](https://github.com/Shaurya-34/Hackathon/issues/9); needs host CPU confirmation |
+| YashInani07 | macOS Sequoia | Apple M2 — Apple Silicon / arm64 | Confirmed by task requester, 10 October 2026 |
+| krrishh17 | macOS | Apple M5 — Apple Silicon / arm64 | Confirmed by task requester, 10 October 2026 |
+| yashparikh26 | Windows/Linux | amd64 (x86_64); CPU model not supplied | Architecture confirmed by task requester, 10 October 2026 |
 | Shaurya-34 | Not confirmed | Pending | Assigned [#7](https://github.com/Shaurya-34/Hackathon/issues/7) and [#10](https://github.com/Shaurya-34/Hackathon/issues/10); needs host CPU confirmation |
 
-For each person, record the CPU model, architecture, confirmation date, and evidence link before marking the check complete:
+For the two remaining teammates, record the host architecture and confirmation source/date; include the CPU model when available. These checks can also capture runtime details separately:
 
 - **macOS:** Apple menu → About This Mac → report only **Chip** or **Processor**. An Apple M-series chip means Apple Silicon / arm64; an Intel processor means amd64. macOS alone is insufficient, and a terminal running under Rosetta can report x86_64 on Apple Silicon.
 - **Linux:** report the Architecture and Model name from `lscpu`; x86_64 maps to amd64, aarch64 to arm64.
@@ -208,7 +208,7 @@ For each person, record the CPU model, architecture, confirmation date, and evid
 
 Issue #2 states that the prebuilt application image is amd64-only; this report has not independently inspected its registry manifest. For an Apple Silicon host, the deployment needs a compatible source build or amd64 emulation. The source Dockerfile sets GOOS=linux but does not hard-code GOARCH. Confirm support for the pinned images and record whether the actual run uses native arm64 or emulated amd64; do not count an emulator's architecture as the physical chip.
 
-**YashInani07's exact chip is still unconfirmed.** Obtain the Chip/Processor field before classifying this teammate.
+**Confirmed architecture split:** YashInani07 and krrishh17 use Apple Silicon / arm64; yashparikh26 uses amd64. AyushVoid and Shaurya-34 still need host architecture confirmation. Docker daemon architecture and native-versus-emulated execution have not been verified for these machines.
 
 ## Runtime caveats and suggested corrections
 
