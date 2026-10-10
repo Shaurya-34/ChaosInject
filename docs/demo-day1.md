@@ -70,5 +70,5 @@ Say: every run is saved with its config, the samples, the stop reason and the re
 - Smoke fails: `cd sandbox/hotel/.runtime; docker compose ps --all; docker compose logs --tail=50`
 - A run is `refused: baseline already unhealthy`: that's the safety check working. Fix the app (usually `docker compose start rate`), then rerun.
 - Kill switch: Ctrl+C during a run. The fault is still restored.
-- **Never pipe controller output** into `Select-Object -First`, `head`, etc., and don't close the terminal mid-run. A force-killed controller can't restore its fault. If that happens, restore the target by hand, e.g. `docker start hotel-sandbox-geo-1`, then run the smoke test.
+- **Don't pipe controller output** into `Select-Object -First`, `head`, etc., and don't close the terminal mid-run: that force-kills the controller before it can restore. If it happens, run `python -m chaos.controller --recover` (the next experiment also does this automatically), then the smoke test.
 - Fallback without the hotel stack: `docker compose -f sandbox/dummy/docker-compose.yml up -d` then `python -m chaos.controller experiments/dummy_web_stop.json`

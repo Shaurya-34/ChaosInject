@@ -1,7 +1,9 @@
 """Experiment controller: baseline -> inject -> observe -> restore -> recovery.
 
 Usage: python -m chaos.controller experiments/dummy_web_stop.json
+       python -m chaos.controller --recover   (restore a fault left by a killed run)
 Kill switch: Ctrl+C. The fault is always restored, even on error or interrupt.
+If the process itself is killed, the next run (or --recover) restores the leftover fault first.
 """
 
 import json
@@ -51,8 +53,28 @@ def _fmt(phase, s):
     return f"  [{phase:<8}] {'ok  ' if s['ok'] else 'FAIL'} status={status} {s['latency_ms']:>7.1f}ms"
 
 
+def marker_path():
+    """Exists only while a fault is injected; a leftover one means a run was killed mid-fault."""
+    return hooks.RESULTS_DIR / ".active_fault.json"
+
+
+def recover_abandoned(marker, policy, faults=FAULTS, log=print):
+    """Restore a fault left behind by a killed run. Returns the restored target, or None."""
+    if not marker.exists():
+        return None
+    info = json.loads(marker.read_text())
+    target, name = info["target"], info["fault"]
+    if target not in policy["allowed_targets"] or name not in faults:
+        raise PolicyError(f"leftover fault marker {marker} names {name!r} on {target!r}, which is not "
+                          "allowlisted; restore it by hand, then delete the marker")
+    log(f"found leftover {name} on {target} from a killed run; restoring it first")
+    faults[name]().restore(target)
+    marker.unlink()
+    return target
+
+
 def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, sleep=time.sleep,
-        check_baseline=hooks.check_baseline, log=lambda msg: None):
+        check_baseline=hooks.check_baseline, log=lambda msg: None, marker=None):
     check_policy(exp, policy)
 
     def say(msg):
@@ -82,6 +104,10 @@ def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, 
         return record
 
     record["fault_started"] = time.time()
+    if marker:  # written before injecting; if this fails, nothing is injected
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(json.dumps({"target": exp["target"], "fault": exp["fault"],
+                                      "experiment": exp["name"], "started": record["fault_started"]}))
     try:
         say(f"injecting {exp['fault']} into {exp['target']} for up to {exp['duration_s']}s")
         fault.inject(exp["target"])
@@ -106,6 +132,8 @@ def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, 
         say("KILL SWITCH: Ctrl+C")
     finally:
         fault.restore(exp["target"])  # restore first: nothing may run before it
+        if marker:
+            marker.unlink(missing_ok=True)  # only reached if restore succeeded
         record["fault_ended"] = time.time()
         say(f"restored {exp['target']}")
 
@@ -127,10 +155,19 @@ def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, 
 def main(argv):
     if len(argv) != 2:
         sys.exit(__doc__)
-    exp = json.loads(Path(argv[1]).read_text())
     policy = json.loads(POLICY_PATH.read_text())
+    marker = marker_path()
+    if argv[1] == "--recover":
+        try:
+            target = recover_abandoned(marker, policy)
+        except PolicyError as e:
+            sys.exit(f"refused: {e}")
+        print("nothing to recover" if target is None else f"restored {target}")
+        return
+    exp = json.loads(Path(argv[1]).read_text())
     try:
-        record = run(exp, policy, log=lambda msg: print(msg, flush=True))
+        recover_abandoned(marker, policy)
+        record = run(exp, policy, log=lambda msg: print(msg, flush=True), marker=marker)
     except PolicyError as e:
         sys.exit(f"refused: {e}")
     path = hooks.save_result(record)
