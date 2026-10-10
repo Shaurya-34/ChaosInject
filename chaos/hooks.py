@@ -110,7 +110,7 @@ def latency_limit_ms(baseline, policy):
 def check_baseline(baseline, policy):
     """Optional pre-flight check: return a reason if the app is already unhealthy.
 
-    Not called by the controller yet; it can call this before injecting a fault.
+    The controller calls this after the baseline and refuses the run on a reason.
     """
     p = effective_policy(policy)
     s = summarize(baseline)
