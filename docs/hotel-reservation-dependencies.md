@@ -193,19 +193,11 @@ Updated 10 October 2026. The five teammates below are identified from the projec
 
 | Teammate | Known OS | Host CPU / architecture | Confirmation source/date |
 |---|---|---|---|
-<<<<<<< Updated upstream
 | AyushVoid | Windows/Linux | amd64 (x86_64); CPU model not supplied | Architecture confirmed by task requester, 10 October 2026 |
 | YashInani07 | macOS Sequoia | Apple M2 — Apple Silicon / arm64 | Confirmed by task requester, 10 October 2026 |
 | krrishh17 | macOS | Apple M5 — Apple Silicon / arm64 | Confirmed by task requester, 10 October 2026 |
 | yashparikh26 | Windows/Linux | amd64 (x86_64); CPU model not supplied | Architecture confirmed by task requester, 10 October 2026 |
-| Shaurya-34 | Windows/Linux | amd64 (x86_64); CPU model not supplied | Architecture confirmed by task requester, 10 October 2026 |
-=======
-| AyushVoid | Not confirmed | Pending | Assigned [#2](https://github.com/Shaurya-34/Hackathon/issues/2) and [#3](https://github.com/Shaurya-34/Hackathon/issues/3); needs host CPU confirmation |
-| YashInani07 | macOS | Apple Silicon M2, arm64 (confirmed 10 Oct 2026) | `uname -m` = `arm64`, reported by YashInani07 ([PR #25 comment](https://github.com/Shaurya-34/Hackathon/pull/25)); runs amd64 images via Colima + Rosetta |
-| krrishh17 | Not confirmed | Pending | Assigned [#5](https://github.com/Shaurya-34/Hackathon/issues/5) and [#6](https://github.com/Shaurya-34/Hackathon/issues/6); needs host CPU confirmation |
-| yashparikh26 | Not confirmed | Pending | Assigned [#8](https://github.com/Shaurya-34/Hackathon/issues/8) and [#9](https://github.com/Shaurya-34/Hackathon/issues/9); needs host CPU confirmation |
-| Shaurya-34 | Windows 11 | Intel Core i7-13700HX, amd64 (confirmed 10 Oct 2026) | `Win32_Processor` / `PROCESSOR_ARCHITECTURE=AMD64` on host; prebuilt image runs natively |
->>>>>>> Stashed changes
+| Shaurya-34 | Windows 11 | Intel Core i7-13700HX — amd64 (x86_64) | Confirmed by task requester, 10 October 2026; read from `Win32_Processor` on host |
 
 For future hardware changes or independent runtime verification, use the following checks:
 
