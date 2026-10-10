@@ -44,8 +44,9 @@ The controller enforces safety, not the AI. AI output is a recommendation, never
 ### Hotel Reservation sandbox (issue #3)
 
 Requires Git, Python 3.10+, Docker Engine/Desktop with a running **Linux** daemon,
-and Docker Compose v2.29.7 or later. On Windows, run these commands in WSL2 with
-Docker integration. Reserve localhost ports 5000, 8500, and 16686.
+and Docker Compose v2.29.7 or later. On Windows, Docker Desktop with Linux
+containers and PowerShell works directly; a WSL2 shell is not required.
+Reserve localhost ports 5000, 8500, and 16686.
 
 The eight core application services pull the immutable
 `deathstarbench/hotel-reservation` image. It is **linux/amd64**, verified from its
@@ -55,17 +56,19 @@ teammates can run it natively. Review and attractions build from the pinned
 upstream source using the host's default build platform. MongoDB, Memcached,
 Consul, Jaeger, and the Go builder have arm64 and amd64 manifests.
 
-From the repository root:
+From the repository root, use `python` on Windows (PowerShell) and `python3`
+on Linux/macOS. The commands below use the Windows spelling; substitute
+`python3` on Linux/macOS:
 
-```bash
+```powershell
 docker info
 docker compose version
-python3 sandbox/hotel/prepare.py
+python sandbox/hotel/prepare.py
 cd sandbox/hotel/.runtime
 docker compose pull --ignore-buildable
 docker compose up -d --build
 docker compose ps --all
-python3 ../smoke.py
+python ../smoke.py
 ```
 
 The first preparation clones DeathStarBench at commit
@@ -75,6 +78,15 @@ The first preparation clones DeathStarBench at commit
 Generated files live under the gitignored `sandbox/hotel/.runtime/`.
 Preparation stops if an existing upstream checkout has a different revision or
 tracked modifications.
+
+For Windows checkout compatibility, preparation enables repository-local
+`core.longpaths=true` immediately after clone, then selects only
+`hotelReservation` with `git sparse-checkout set --cone --sparse-index`
+before checkout. This avoids invalid `*` filenames in `daprApps_v1/` and
+supports long paths under `vendor/` and `helm-chart/`.
+If an earlier preparation failed during checkout, move just
+`sandbox/hotel/.runtime/DeathStarBench` to a backup location and rerun preparation.
+Keep any local edits in that backup; there is no need to delete Docker volumes.
 
 After preparation, plain `docker compose up -d --build` in that directory starts
 the defined stack (only review and attractions have build definitions). Source
@@ -173,10 +185,11 @@ the pulled application binaries.
 ### Validation status
 
 The configuration was generated from the pinned upstream Compose file and
-validated with standalone Docker Compose **v2.29.7**. The focused tests pass:
+validated with standalone Docker Compose **v2.29.7**. Run the focused tests with
+`python` on Windows or `python3` on Linux/macOS:
 
-```bash
-python3 -m unittest discover -s tests -p 'test_hotel_setup.py' -v
+```powershell
+python -m unittest discover -s tests -p 'test_hotel_setup.py' -v
 ```
 
 **End-to-end execution of this exact locked setup is still pending:** the editing
