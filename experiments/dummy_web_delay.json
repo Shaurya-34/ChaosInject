@@ -5,7 +5,7 @@
   "delay_ms": 200,
   "jitter_ms": 20,
   "duration_s": 10,
-  "probe_url": "http://localhost:8081/",
+  "probe_url": "http://127.0.0.1:8081/",
   "baseline_samples": 5,
   "interval_s": 1
 }

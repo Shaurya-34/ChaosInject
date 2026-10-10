@@ -22,8 +22,8 @@ The limit adapts to each app's normal speed and never goes below the floor or ab
 **Fail-safe:** a malformed sample counts as a failure. A bad policy value, or any error
 inside the check, returns a "stopping to be safe" reason instead of letting a fault run unchecked.
 
-`check_baseline(baseline, policy)` is an optional pre-flight check. The controller can call it
-before injecting, to refuse a run when the app is already unhealthy.
+`check_baseline(baseline, policy)` is a pre-flight check. The controller calls it after the
+baseline samples: if it returns a reason, no fault is injected and the run is saved as refused.
 
 ### Policy keys (add to `chaos/policy.json`; missing keys use these defaults)
 
