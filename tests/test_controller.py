@@ -3,16 +3,17 @@ import time
 import unittest
 from unittest import mock
 
-from chaos import faults
+from chaos import controller, faults, hooks
 from chaos.controller import PolicyError, run
 
 # These tests check controller mechanics, not safety rules, so the safety hook never stops.
 NEVER_STOP = lambda sample, baseline, policy: None
+ALWAYS_DOWN = lambda url: {"t": 0, "ok": False, "status": None, "latency_ms": 1.0}
 
 POLICY = {"allowed_targets": ["web"], "allowed_faults": ["container_stop"],
           "max_duration_s": 60, "hard_timeout_s": 120, "recovery_timeout_s": 1}
 EXP = {"name": "t", "target": "web", "fault": "container_stop", "duration_s": 0.2,
-       "probe_url": "http://x", "baseline_samples": 2, "interval_s": 0.01}
+       "probe_url": "http://x", "baseline_samples": 3, "interval_s": 0.01}
 
 
 class FakeFault:
@@ -102,10 +103,77 @@ class ControllerTest(unittest.TestCase):
 
     def test_not_recovered_when_app_stays_down(self):
         f = FakeFault()
-        r = run(EXP, {**POLICY, "recovery_timeout_s": 0.1}, fault=f,
-                probe_fn=lambda url: {"t": 0, "ok": False, "status": None, "latency_ms": 1.0})
+        healthy = probe_for(f)
+        r = run(EXP, {**POLICY, "recovery_timeout_s": 0.1}, fault=f, should_stop=NEVER_STOP,
+                probe_fn=lambda url: ALWAYS_DOWN(url) if f.calls else healthy(url))
+        self.assertEqual(f.calls, ["inject", "restore"])
         self.assertFalse(r["recovered"])
         self.assertIsNone(r["recovery_s"])
+
+
+class BaselineCheckTest(unittest.TestCase):
+    def test_unhealthy_baseline_refuses_without_injecting(self):
+        f = FakeFault()
+        r = run(EXP, POLICY, fault=f, probe_fn=ALWAYS_DOWN, should_stop=NEVER_STOP)
+        self.assertEqual(f.calls, [])  # never injected, so nothing to restore
+        self.assertTrue(r["refused"])
+        self.assertTrue(r["stop_reason"].startswith("refused: baseline already unhealthy"))
+        self.assertEqual(len(r["baseline"]), EXP["baseline_samples"])
+        self.assertEqual((r["during"], r["recovery"]), ([], []))
+        self.assertIsNone(r["fault_started"])
+
+    def test_check_baseline_reason_is_recorded(self):
+        f = FakeFault()
+        r = run(EXP, POLICY, fault=f, probe_fn=probe_for(f), should_stop=NEVER_STOP,
+                check_baseline=lambda baseline, policy: "too slow")
+        self.assertEqual(r["stop_reason"], "refused: too slow")
+        self.assertEqual(f.calls, [])
+
+    def test_check_baseline_sees_baseline_and_policy(self):
+        seen = {}
+
+        def spy(baseline, policy):
+            seen["n"], seen["policy"] = len(baseline), policy
+            return None
+
+        f = FakeFault()
+        r = run(EXP, POLICY, fault=f, probe_fn=probe_for(f), should_stop=NEVER_STOP, check_baseline=spy)
+        self.assertEqual(seen, {"n": EXP["baseline_samples"], "policy": POLICY})
+        self.assertEqual(f.calls, ["inject", "restore"])
+        self.assertNotIn("refused", r)
+
+    def test_too_few_baseline_samples_refuses(self):
+        f = FakeFault()
+        r = run({**EXP, "baseline_samples": 1}, POLICY, fault=f, probe_fn=probe_for(f))
+        self.assertIn("baseline too short", r["stop_reason"])
+        self.assertEqual(f.calls, [])
+
+    def test_reset_state_called_before_first_probe(self):
+        order = []
+        f = FakeFault()
+        healthy = probe_for(f)
+
+        def probe(url):
+            order.append("probe")
+            return healthy(url)
+
+        with mock.patch.object(hooks, "reset_state", side_effect=lambda: order.append("reset")):
+            run(EXP, POLICY, fault=f, probe_fn=probe, should_stop=NEVER_STOP)
+        self.assertEqual(order[0], "reset")
+        self.assertEqual(order.count("reset"), 1)
+
+    def test_main_saves_refused_run(self):
+        refused = {"stop_reason": "refused: baseline already unhealthy", "refused": True,
+                   "baseline": [], "during": [], "recovery": [], "recovered": False, "recovery_s": None}
+        with mock.patch.object(controller, "run", return_value=refused), \
+                mock.patch.object(hooks, "save_result", return_value="results/x.json") as save, \
+                mock.patch.object(controller.Path, "read_text", return_value="{}"), \
+                mock.patch("builtins.print") as out:
+            controller.main(["controller", "exp.json"])
+        save.assert_called_once_with(refused)
+        printed = " ".join(str(c.args[0]) for c in out.call_args_list)
+        self.assertIn("no fault injected", printed)
+        self.assertIn("results/x.json", printed)
 
 
 if __name__ == "__main__":

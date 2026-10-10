@@ -46,8 +46,10 @@ def check_policy(exp, policy):
         raise PolicyError(f"duration {exp['duration_s']}s exceeds max {policy['max_duration_s']}s")
 
 
-def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, sleep=time.sleep):
+def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, sleep=time.sleep,
+        check_baseline=hooks.check_baseline):
     check_policy(exp, policy)
+    hooks.reset_state()  # fresh safety window for every run
     fault = fault or FAULTS[exp["fault"]]()
     url, interval = exp["probe_url"], exp["interval_s"]
     deadline = time.monotonic() + policy["hard_timeout_s"]
@@ -57,6 +59,14 @@ def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, 
     for _ in range(exp["baseline_samples"]):
         record["baseline"].append(probe_fn(url))
         sleep(interval)
+
+    # Pre-flight: never inject into an app that is already unhealthy.
+    reason = check_baseline(record["baseline"], policy)
+    if reason:
+        record["stop_reason"] = f"refused: {reason}"
+        record["refused"] = True
+        record["fault_started"] = record["fault_ended"] = None
+        return record
 
     record["fault_started"] = time.time()
     try:
@@ -105,8 +115,12 @@ def main(argv):
     except PolicyError as e:
         sys.exit(f"refused: {e}")
     path = hooks.save_result(record)
-    errors = sum(not s["ok"] for s in record["during"])
     print(f"stop reason: {record['stop_reason']}")
+    if record.get("refused"):
+        print("no fault injected")
+        print(f"saved: {path}")
+        return
+    errors = sum(not s["ok"] for s in record["during"])
     print(f"during fault: {errors}/{len(record['during'])} probes failed")
     print(f"recovered: {record['recovered']} in {record['recovery_s']}s")
     print(f"saved: {path}")
