@@ -14,7 +14,7 @@ About 6–7 minutes, then Q&A. Each person explains what they built. One **drive
 | 3 | Krishna | 1:00 | Dependency map + baseline | Diagram, baseline numbers |
 | 4 | Parikh | 1:00 | Safety controller + results | Policy, `hooks list` |
 | 5 | Shaurya | 1:30 | Live faults + the finding | geo stop, memcached-rate stop |
-| 6 | Inani | 0:45 | Chaos tool + network delay | #4 evaluation (live delay only if #28 merged) |
+| 6 | Inani | 1:00 | Chaos tool + network delay | #4 evaluation, live delay on `rate` |
 | 7 | Shaurya | 0:30 | Day 2 plan | Board, #11, #13 |
 
 ## Pre-flight (driver, 10 min before)
@@ -127,15 +127,24 @@ cd sandbox/hotel/.runtime; docker compose start rate; cd ../../..
 
 **Handoff:** "Inani picked the tool for the next fault types."
 
-## 6. Inani: chaos tool and network delay (0:45)
+## 6. Inani: chaos tool and network delay (1:00)
 
 **Say:**
 - We evaluated Pumba against ChaosLabs (fraware/chaoslabs). ChaosLabs brings its own controller, agents and dashboard, duplicating what we built. Pumba is a single Docker-native tool driven over the Docker socket, so it slots into our controller.
 - The network-delay fault uses Pumba's netem with a separate `tc` image. It verifies the delay is *active* before measuring and *gone* after restoring, and raises an error if not.
-- Measured in a manual Pumba test: latency 32 ms → 278 ms during the delay → 20.6 ms after.
+- Now a second fault type on the real app: 200 ms of delay on just one internal service, `rate`.
 
-**Show:** the #4 evaluation comment.
-**Only if PR #28 has merged:** the driver runs `python -m chaos.controller experiments/dummy_web_delay.json` (needs `docker compose -f sandbox/dummy/docker-compose.yml up -d`). Expect `[fault]` lines about 200 ms slower and a `SAFETY STOP: p95 latency`. If #28 isn't merged, describe it as in progress. **Don't run it.**
+**Driver runs** (an **amd64 machine only**; see below):
+```powershell
+python -m chaos.controller experiments/hotel_rate_delay.json
+```
+**Expect:** baseline around 30–50 ms → `[fault]` lines at **1–2 s**, then `FAIL status=---` (probe timeout) → `SAFETY STOP` → `restored` → recovery back to ~30 ms.
+
+**Say (the finding):** 200 ms on one backend became 6–10× slower at the edge, then timeouts, because each `/hotels` request goes through `rate` several times and nothing on that path has a timeout. Unlike the cache crash, this recovers instantly once the delay is removed: it's a latency-amplification weakness, not a crash.
+
+**Evidence:** #4, #7, PRs #28, #39
+
+**Mac caveat:** on Docker Desktop for Mac the delay is installed but not observable through host port forwarding (and the `tc` image is amd64-only). Run this step on an amd64 machine; if the demo machine is a Mac, skip the live run and describe the result.
 
 **Handoff:** "Shaurya on what's next."
 
@@ -157,7 +166,7 @@ cd sandbox/hotel/.runtime; docker compose start rate; cd ../../..
 |---|---|
 | "We crashed `rate` by stopping its cache" | "We crashed 4 services" (the other 3 are code-confirmed, not tested) |
 | "The same pattern appears in 3 more services' code" | "The whole app is fragile" |
-| "Network delay is implemented and in review" (unless #28 merged) | "We ran network delay on the hotel app" (not yet) |
+| "A 200 ms delay on `rate` made `/hotels` 6–10× slower, then time out" | "Network delay works on every machine" (not observable on Docker Desktop for Mac) |
 | "The bug is in upstream DeathStarBench" | "We found a bug in our code" |
 | "Day 2: AI agents recommend; the controller enforces" | "The AI runs the experiments" |
 
@@ -170,10 +179,11 @@ cd sandbox/hotel/.runtime; docker compose start rate; cd ../../..
 | What's the fix? | Shaurya | Treat cache errors as a cache miss and fall back to MongoDB. That's our Day 2 before/after |
 | What stops a fault running forever? | Parikh | The experiment duration (≤ 60 s), a 120 s hard timeout, Ctrl+C, and the safety rules. If the controller process is killed, a marker file makes the next run (or `--recover`) restore the fault |
 | How do you stop it touching the wrong thing? | Parikh | An allowlist of targets and fault types in `policy.json`; experiments can't change it; only our local sandbox |
+| Why does 200 ms of delay cause 2 s timeouts? | Inani | Each `/hotels` request makes several round trips through `rate` (gRPC plus its cache/DB calls), and every packet pays the delay. With no per-call deadline on search → rate, it compounds. Fix: deadlines/timeouts on internal calls |
 | Why not Kubernetes / Chaos Mesh? | Inani | It's Kubernetes-only and heavy for a laptop sandbox. Docker Compose plus Pumba covers our faults |
 | How do you know the baseline is valid? | Krishna | Fixed-rate wrk2 with the upstream workload, 0 errors, and the bogus first run explained and excluded |
 | How is the AI kept safe? | Shaurya | It only outputs a proposal (JSON). The controller validates it against policy; the AI has no shell or Docker access |
-| Does it work on Macs? | Ayush / Inani | Yes: M2 and M5 via amd64 emulation (Rosetta / Colima); natively on amd64 |
+| Does it work on Macs? | Ayush / Inani | Yes: M2 and M5 via amd64 emulation (Rosetta / Colima); natively on amd64. Exception: the network-delay fault isn't observable through Docker Desktop for Mac's port forwarding, so we demo it on amd64 |
 
 ## If something goes wrong
 
