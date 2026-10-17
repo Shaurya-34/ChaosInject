@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Derive a locked local sandbox from the unmodified upstream Compose file.
 
---fix-cache builds `rate` and `profile` from source with a patch: a memcached error falls back
-to MongoDB instead of crashing the service (upstream calls log.Panic), and a circuit breaker
-(patches/cache_breaker.go) skips the cache for a cooldown so requests don't each wait for the
-cache timeout. Without it, the sandbox reproduces the upstream behaviour that ChaosInject found.
+--fix-cache builds `rate`, `profile` and `reservation` from source with a patch: a memcached error
+falls back to MongoDB instead of crashing the service (upstream calls log.Panic), and a circuit
+breaker (patches/cache_breaker.go) skips the cache for a cooldown so requests don't each wait for
+the cache timeout. Without it, the sandbox reproduces the upstream behaviour that ChaosInject found.
 """
 import argparse
 import json
@@ -21,7 +21,10 @@ SOURCE_SERVICES = {"review", "attractions"}
 
 
 def cache_edits(panic_line, set_line):
-    """Exact edits to an upstream server.go; each original must occur exactly once."""
+    """Edits (original, replacement, expected count) to an upstream server.go.
+
+    rate and profile: an error branch that panics is turned into a MongoDB fallback.
+    """
     return [
         ("\tresMap, err := s.MemcClient.GetMulti(hotelIds)\n",
          "\t// ChaosInject patch: skip the cache while its breaker is open (see cache_breaker.go).\n"
@@ -29,19 +32,30 @@ def cache_edits(panic_line, set_line):
          "\tvar err error\n"
          "\tif cacheAvailable() {\n"
          "\t\tresMap, err = s.MemcClient.GetMulti(hotelIds)\n"
-         "\t}\n"),
+         "\t}\n", 1),
         (panic_line + "\t} else {\n",
          "\t\t// ChaosInject patch: a cache outage falls back to MongoDB instead of crashing the service.\n"
          '\t\tlog.Warn().Msgf("Memcached error for hotels %v: %s; falling back to MongoDB", hotelIds, err)\n'
          "\t\tmarkCacheDown()\n"
          "\t\tresMap = nil\n"
          "\t}\n"
-         "\t{\n"),
-        (set_line, "\t\t\t\tif cacheAvailable() {\n\t" + set_line + "\t\t\t\t}\n"),
+         "\t{\n", 1),
+        (set_line, "\t\t\t\tif cacheAvailable() {\n\t" + set_line + "\t\t\t\t}\n", 1),
     ]
 
 
+def wrapper_edits(**counts):
+    """reservation already reads MongoDB on memcache.ErrCacheMiss; route every client call
+    through the cache_breaker.go wrappers so an outage looks like a miss. counts: Get, GetMulti, Set."""
+    return [(f"s.MemcClient.{call}(", f"cache{call}(s.MemcClient, ", n) for call, n in counts.items()]
+
+
 CACHE_FIXES = {
+    # The second edit fixes a separate upstream bug that an empty cache exposes: the capacity query
+    # puts $in at the top level, which MongoDB rejects, so the nil cursor then panics (server.go:271).
+    "reservation": wrapper_edits(Get=2, GetMulti=2, Set=4) + [
+        ('numCollection.Find(context.TODO(), bson.D{{"$in", queryMissKeys}})',
+         'numCollection.Find(context.TODO(), bson.D{{"hotelId", bson.D{{"$in", queryMissKeys}}}})', 1)],
     "rate": cache_edits(
         '\t\tlog.Panic().Msgf("Memmcached error while trying to get hotel [id: %v]= %s", hotelIds, err)\n',
         "\t\t\t\tgo s.MemcClient.Set(&memcache.Item{Key: id, Value: []byte(memcStr)})\n"),
@@ -149,8 +163,8 @@ def write_cache_fix(source, sandbox_dockerfile):
     breaker = (HERE / "patches/cache_breaker.go").read_text()
     for name, edits in CACHE_FIXES.items():
         server = (source / "services" / name / "server.go").read_text()
-        for original, replacement in edits:
-            if server.count(original) != 1:
+        for original, replacement, count in edits:
+            if server.count(original) != count:
                 raise SystemExit(f"Unexpected upstream services/{name}/server.go; review the cache patch")
             server = server.replace(original, replacement)
         out = source / "sandbox-patches" / name
@@ -167,7 +181,7 @@ def write_cache_fix(source, sandbox_dockerfile):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--fix-cache", action="store_true",
-                        help="build rate and profile with the cache-fallback patch instead of the upstream image")
+                        help="build rate, profile and reservation with the cache-fallback patch instead of the upstream images")
     args = parser.parse_args()
     lock = json.loads((HERE / "images.lock.json").read_text())
     runtime = HERE / ".runtime"
