@@ -258,6 +258,8 @@ def save_result(record):
         "file": path.name,
         "experiment": name,
         "target": experiment.get("target") if isinstance(experiment, dict) else None,
+        "fault": experiment.get("fault") if isinstance(experiment, dict) else None,
+        "duration_s": experiment.get("duration_s") if isinstance(experiment, dict) else None,
         "fault_started": record.get("fault_started"),
         "fault_ended": record.get("fault_ended"),
         "stop_reason": record.get("stop_reason"),

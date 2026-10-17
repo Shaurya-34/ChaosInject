@@ -3587,6 +3587,182 @@
         "summary": "Actions Disabled"
       }
     },
+    "/api/v1/chaos/active": {
+      "get": {
+        "operationId": "active_run_api_v1_chaos_active_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Active Run",
+        "tags": [
+          "chaos"
+        ]
+      }
+    },
+    "/api/v1/chaos/active/stop": {
+      "post": {
+        "operationId": "stop_run_api_v1_chaos_active_stop_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Stop Run",
+        "tags": [
+          "chaos"
+        ]
+      }
+    },
+    "/api/v1/chaos/experiments": {
+      "get": {
+        "operationId": "experiments_api_v1_chaos_experiments_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Experiments",
+        "tags": [
+          "chaos"
+        ]
+      }
+    },
+    "/api/v1/chaos/experiments/{name}/run": {
+      "post": {
+        "operationId": "start_run_api_v1_chaos_experiments__name__run_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Run",
+        "tags": [
+          "chaos"
+        ]
+      }
+    },
+    "/api/v1/chaos/recover": {
+      "post": {
+        "description": "Restore a fault left behind by a controller that was killed mid-run.",
+        "operationId": "recover_api_v1_chaos_recover_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Recover",
+        "tags": [
+          "chaos"
+        ]
+      }
+    },
+    "/api/v1/chaos/runs": {
+      "get": {
+        "operationId": "runs_api_v1_chaos_runs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Runs",
+        "tags": [
+          "chaos"
+        ]
+      }
+    },
+    "/api/v1/chaos/runs/{run_id}": {
+      "get": {
+        "operationId": "run_detail_api_v1_chaos_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Detail",
+        "tags": [
+          "chaos"
+        ]
+      }
+    },
     "/api/v1/demo/injection": {
       "post": {
         "operationId": "demo_injection_api_v1_demo_injection_post",

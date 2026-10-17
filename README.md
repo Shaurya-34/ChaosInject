@@ -251,6 +251,21 @@ python -m chaos.hooks show <run_id>
 - **Results** are saved to `results/` (gitignored): config, every probe sample, stop reason and
   recovery time, with a computed summary.
 
+### Over the API
+
+The FastAPI backend serves real runs under `/api/v1/chaos` (Bearer token as for the rest of the API):
+
+| Endpoint | Does |
+|---|---|
+| `GET /experiments` | experiment files in `experiments/` |
+| `POST /experiments/{id}/run` | starts `python -m chaos.controller experiments/{id}.json` as a detached subprocess (202) |
+| `GET /active` | in-flight run: running, exit code, saved `run_id`, leftover fault marker, log tail |
+| `POST /active/stop` | kill switch: writes `results/.stop_request`; the controller stops and restores |
+| `POST /recover` | restores a fault left by a killed controller |
+| `GET /runs`, `GET /runs/{run_id}` | saved results, shape in [contracts/run.schema.json](contracts/run.schema.json) |
+
+Starting, stopping and recovering are refused unless `CHAOS_EXECUTION_ENABLED=true`.
+
 Tests:
 
 ```powershell

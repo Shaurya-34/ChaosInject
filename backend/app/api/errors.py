@@ -23,4 +23,5 @@ MESSAGES = {
     "DEPENDENCY_UNAVAILABLE": "A required module is unavailable; operation refused.",
     "INVALID_EVIDENCE": "Summary or analysis evidence failed validation.",
     "ACTIONS_DISABLED": "Adaptive actions are disabled for this workstream.",
+    "POLICY_REFUSED": "Experiment is not allowed by chaos/policy.json.",
 }

@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Shaurya-34/ChaosInject/contracts/run.schema.json",
+  "title": "ChaosRun",
+  "description": "One experiment record written by chaos.hooks.save_result to results/<run_id>.json (schema_version 1). Served by GET /api/v1/chaos/runs/{run_id}. Times are Unix seconds; latencies are milliseconds. Source of truth: chaos/controller.py run() and chaos/hooks.py save_result().",
+  "type": "object",
+  "required": ["run_id", "schema_version", "saved_at", "experiment", "policy", "baseline", "during", "recovery",
+               "stop_reason", "recovered", "recovery_s", "fault_started", "fault_ended", "summary"],
+  "properties": {
+    "run_id": {"type": "string", "description": "<YYYYMMDD-HHMMSS>-<experiment name slug>-<6 hex>"},
+    "schema_version": {"const": 1},
+    "saved_at": {"type": "number"},
+    "experiment": {"$ref": "#/$defs/Experiment"},
+    "policy": {"type": "object", "description": "Contents of chaos/policy.json at run time."},
+    "baseline": {"type": "array", "items": {"$ref": "#/$defs/Sample"}, "description": "Probes before injecting."},
+    "during": {"type": "array", "items": {"$ref": "#/$defs/Sample"}, "description": "Probes while the fault was active; empty if refused."},
+    "recovery": {"type": "array", "items": {"$ref": "#/$defs/Sample"}, "description": "Probes after restore, until the first ok probe or recovery_timeout_s."},
+    "stop_reason": {
+      "type": ["string", "null"],
+      "description": "Why the fault phase ended. Prefixes: 'refused: ' (never injected), 'safety: ' (a stop rule tripped), 'kill switch (...)', 'hard timeout', 'duration elapsed'."
+    },
+    "refused": {"type": "boolean", "description": "Present and true only when the run was refused before injecting."},
+    "recovered": {"type": "boolean"},
+    "recovery_s": {"type": ["number", "null"], "description": "Seconds from restore to the first ok probe; null if not recovered."},
+    "fault_started": {"type": ["number", "null"]},
+    "fault_ended": {"type": ["number", "null"]},
+    "summary": {
+      "type": "object",
+      "required": ["baseline", "during", "recovery"],
+      "properties": {
+        "baseline": {"$ref": "#/$defs/PhaseSummary"},
+        "during": {"$ref": "#/$defs/PhaseSummary"},
+        "recovery": {"$ref": "#/$defs/PhaseSummary"}
+      }
+    }
+  },
+  "$defs": {
+    "Experiment": {
+      "type": "object",
+      "description": "Contents of experiments/<id>.json. Fault-specific keys (e.g. delay_ms, jitter_ms) may be present.",
+      "required": ["name", "target", "fault", "duration_s", "probe_url", "baseline_samples", "interval_s"],
+      "properties": {
+        "name": {"type": "string"},
+        "target": {"type": "string", "description": "Container name; must be in policy.allowed_targets."},
+        "fault": {"type": "string", "description": "e.g. container_stop, network_delay; must be in policy.allowed_faults."},
+        "duration_s": {"type": "number"},
+        "probe_url": {"type": "string"},
+        "baseline_samples": {"type": "integer"},
+        "interval_s": {"type": "number"}
+      }
+    },
+    "Sample": {
+      "type": "object",
+      "required": ["t", "ok", "status", "latency_ms"],
+      "properties": {
+        "t": {"type": "number"},
+        "ok": {"type": "boolean", "description": "True when an HTTP status < 500 was received."},
+        "status": {"type": ["integer", "null"], "description": "null on timeout or connection error."},
+        "latency_ms": {"type": "number"}
+      }
+    },
+    "PhaseSummary": {
+      "type": "object",
+      "required": ["count", "failures", "error_rate", "p50_ms", "p95_ms", "max_ms"],
+      "properties": {
+        "count": {"type": "integer"},
+        "failures": {"type": "integer"},
+        "error_rate": {"type": ["number", "null"], "description": "failures / count; null when count is 0."},
+        "p50_ms": {"type": ["number", "null"], "description": "Over ok probes only."},
+        "p95_ms": {"type": ["number", "null"]},
+        "max_ms": {"type": ["number", "null"]}
+      }
+    },
+    "IndexEntry": {
+      "description": "One row of results/index.jsonl; GET /api/v1/chaos/runs returns these, newest first.",
+      "type": "object",
+      "required": ["run_id", "file", "experiment", "target", "stop_reason", "recovered", "recovery_s"],
+      "properties": {
+        "run_id": {"type": "string"},
+        "file": {"type": "string"},
+        "experiment": {"type": ["string", "null"]},
+        "target": {"type": ["string", "null"]},
+        "fault": {"type": ["string", "null"], "description": "Missing in rows written before this field was added."},
+        "duration_s": {"type": ["number", "null"]},
+        "fault_started": {"type": ["number", "null"]},
+        "fault_ended": {"type": ["number", "null"]},
+        "stop_reason": {"type": ["string", "null"]},
+        "recovered": {"type": ["boolean", "null"]},
+        "recovery_s": {"type": ["number", "null"]},
+        "during_error_rate": {"type": ["number", "null"]},
+        "during_p95_ms": {"type": ["number", "null"]},
+        "baseline_p95_ms": {"type": ["number", "null"]}
+      }
+    }
+  }
+}
