@@ -211,3 +211,62 @@ def test_slow_agent_call_does_not_block_active(results, monkeypatch):
         assert c.get("/api/v1/chaos/active").status_code == 200
         assert _time.monotonic() - t0 < 1.0  # served while /findings is still busy
         slow.join()
+
+
+def fake_prometheus(monkeypatch, points=None, fail=False):
+    calls = []
+
+    def query_range(query, start, end, step):
+        calls.append((query, start, end, step))
+        if fail:
+            raise OSError("connection refused")
+        return [] if points is None else points
+
+    monkeypatch.setattr(chaos_runs, "_prom_query_range", query_range)
+    return calls
+
+
+def test_run_metrics_named_queries_for_run_window(results, monkeypatch):
+    calls = fake_prometheus(monkeypatch, points=[[100.0, 1.0]])
+    run_id = saved_run(results)  # hotel-geo-stop on hotel-sandbox-geo-1, fault 1.5 -> 2.5
+    with client(False) as c:
+        m = c.get(f"/api/v1/chaos/runs/{run_id}/metrics").json()
+    assert m["available"] is True and m["step_s"] == 1
+    assert m["window"] == {"start": -8, "end": 13}
+    queries = {q for q, *_ in calls}
+    assert 'chaos_probe_latency_ms{experiment="hotel-geo-stop"}' in queries
+    assert 'probe_success{job="blackbox-hotels"}' in queries
+    assert 'container_memory_working_set_bytes{name="hotel-sandbox-geo-1"}' in queries
+    assert not any("{{" in q for q in queries)
+    assert set(m["series"]) == {"controller_latency_ms", "fault_active", "probe_success", "probe_duration_ms",
+                                "target_net_tx_pps", "target_memory_bytes", "target_last_seen_age_s"}
+    assert all(start == -8 and end == 13 and step == 1 for _, start, end, step in calls)
+
+
+def test_run_metrics_skips_target_queries_for_non_allowlisted_target(results, monkeypatch):
+    calls = fake_prometheus(monkeypatch, points=[[1.0, 1.0]])
+    record = hooks.load_result(saved_run(results))
+    record["experiment"]["target"] = 'evil"}) or vector(1'
+    m = chaos_runs._run_metrics(record)
+    assert not any(k.startswith("target_") for k in m["series"])
+    assert not any("evil" in q for q, *_ in calls)
+
+
+def test_run_metrics_prometheus_down_or_empty(results, monkeypatch):
+    run_id = saved_run(results)
+    fake_prometheus(monkeypatch, fail=True)
+    with client(False) as c:
+        down = c.get(f"/api/v1/chaos/runs/{run_id}/metrics").json()
+    assert (down["available"], down["reason"]) == (False, "prometheus unreachable")
+    assert all(v == [] for v in down["series"].values())
+    fake_prometheus(monkeypatch, points=[])
+    with client(False) as c:
+        empty = c.get(f"/api/v1/chaos/runs/{run_id}/metrics").json()
+    assert empty["available"] is False and empty["reason"].startswith("no data")
+
+
+def test_run_metrics_bad_and_unknown_ids(results, monkeypatch):
+    fake_prometheus(monkeypatch)
+    with client(False) as c:
+        assert c.get("/api/v1/chaos/runs/nope/metrics").status_code == 404
+        assert c.get("/api/v1/chaos/runs/.active_fault/metrics").status_code == 422
