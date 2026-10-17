@@ -1,0 +1,41 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  # chaos/metrics.py: the controller pushes once a second during a run and deletes its
+  # metrics at the end, so chaos_* series exist only while a run is in progress.
+  - job_name: chaos-controller
+    scrape_interval: 1s
+    scrape_timeout: 1s
+    honor_labels: true
+    static_configs:
+      - targets: ["pushgateway:9091"]
+
+  # An independent probe of the same endpoint the controller probes.
+  - job_name: blackbox-hotels
+    scrape_interval: 2s
+    scrape_timeout: 2s
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://frontend:5000/hotels?inDate=2015-04-09&outDate=2015-04-10&lat=38.0235&lon=-122.095
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # Per-container CPU, memory, network and restarts. Only sandbox containers are kept.
+  - job_name: cadvisor
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["cadvisor:8080"]
+    metric_relabel_configs:
+      - source_labels: [name]
+        regex: (hotel-sandbox-.*|chaos-dummy-.*)
+        action: keep

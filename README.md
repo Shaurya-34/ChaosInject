@@ -64,6 +64,7 @@ The controller enforces safety, not the AI. AI output is a recommendation, never
 - [Dependency map](docs/dependency-map.json): machine-readable, used by the controller and the agents ([diagram](docs/dependency-map.mmd))
 - [Baseline](docs/baseline.md): wrk2 steady-state latency
 - [Safety controller and results store](docs/SAFETY.md)
+- [Observability](docs/observability.md): Prometheus, Pushgateway, blackbox and cAdvisor; metric names and PromQL
 - [Day 1 demo runbook](docs/demo-day1.md) and [checkpoint pitch](docs/pitch-day1.md)
 
 ## Setup
@@ -253,6 +254,9 @@ python -m chaos.hooks show <run_id>
   `python -m chaos.controller --recover` restores it; the next experiment also does this automatically.
 - **Results** are saved to `results/` (gitignored): config, every probe sample, stop reason and
   recovery time, with a computed summary.
+- **Metrics:** with `docker compose -f sandbox/observability/compose.yaml up -d` running, each run
+  is also recorded in Prometheus (<http://localhost:9090>). See [docs/observability.md](docs/observability.md).
+  This is observability only; the controller makes every safety decision.
 
 ### Over the API
 
