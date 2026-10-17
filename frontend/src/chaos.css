@@ -54,3 +54,12 @@ button.link{background:none;border:0;padding:0 6px 0 0;color:#0b8178;text-decora
 .finding-card.sev1.status-improved,.finding-card.sev2.status-improved,.finding-card.sev3.status-improved,.finding-card.sev4.status-improved{border-left-color:#1c7ed6;background:#f4f9ff}
 .small-tag.status-fixed_since{background:#e6f7f4;color:#0b6e63;border-color:#b2dfd7}
 .small-tag.status-improved{background:#e7f5ff;color:#1864ab;border-color:#a5d8ff}
+.firstrun ul{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.firstrun-item{border:1px solid #bac8ff;border-left:5px solid #1c7ed6;background:#edf2ff;border-radius:6px;padding:12px 16px}
+.firstrun-item.blocker{border-color:#d0bfff;border-left-color:#5f3dc4;background:#f3f0ff}
+.firstrun-item p{margin:6px 0 8px;font-size:12px;color:#3b4a6b}
+.chaos>*,.firstrun-item{min-width:0}
+.firstrun-command{display:block;max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere;background:#102b34;color:#cfe3e8;border-radius:6px;padding:8px 12px;font:11px ui-monospace,monospace}
+/* Long unbreakable names (hotel_memcached_reserve_stop) must wrap instead of pushing the button off a phone screen. */
+.catalog>div,.suggest-row>div{min-width:0;overflow-wrap:anywhere}
+.catalog button,.suggest-row button{flex:none}

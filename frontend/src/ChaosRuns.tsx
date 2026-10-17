@@ -3,7 +3,8 @@ import {AlertTriangle,OctagonX,Play,RotateCcw} from 'lucide-react';
 import {CartesianGrid,ComposedChart,Legend,Line,ReferenceArea,ResponsiveContainer,Scatter,Tooltip,XAxis,YAxis} from 'recharts';
 import {PrometheusCharts} from './PrometheusCharts';
 import {ScoreCard} from './Score';
-import {ChaosApiError,chaos,chaosDownload,explainedBy,phaseFromLog,refusalMessage,type ActiveRun,type ChaosRun,type ExperimentRow,type IndexEntry,type Proposals,type Findings,type Score} from './chaosApi';
+import {FirstRunChecklist} from './FirstRun';
+import {ChaosApiError,chaos,chaosDownload,explainedBy,phaseFromLog,refusalMessage,type ActiveRun,type ChaosRun,type ExperimentRow,type IndexEntry,type Proposals,type Findings,type Score,type Environment} from './chaosApi';
 
 const pct=(x:number|null|undefined)=>x==null?'n/a':`${Math.round(x*100)}%`;
 const ms=(x:number|null|undefined)=>x==null?'n/a':`${Math.round(x)} ms`;
@@ -15,6 +16,7 @@ export function ChaosRuns({source}:{source?:string}){
   const [suggested,setSuggested]=useState<Proposals>();
   const [findings,setFindings]=useState<Findings>();
   const [score,setScore]=useState<Score>();
+  const [env,setEnv]=useState<Environment>();
   const [active,setActive]=useState<ActiveRun>();
   const [detail,setDetail]=useState<ChaosRun>();
   const [selected,setSelected]=useState<string>();
@@ -36,6 +38,15 @@ export function ChaosRuns({source}:{source?:string}){
     chaos<Score>('/score').then(setScore).catch(()=>{});
     loadRuns().catch(e=>setMessage(refusalMessage(e)));
   },[loadRuns]);
+
+  // What a first run needs (execution, sandbox, Prometheus, saved runs): on load, then every 10 s.
+  useEffect(()=>{
+    let stopped=false;
+    const load=()=>chaos<Environment>('/environment').then(e=>{if(!stopped)setEnv(e);}).catch(()=>{});
+    load();
+    const timer=setInterval(load,10000);
+    return()=>{stopped=true;clearInterval(timer);};
+  },[]);
 
   // Poll /active: once a second while a run is in flight, every 3 s otherwise (to notice a leftover fault).
   useEffect(()=>{
@@ -80,6 +91,7 @@ export function ChaosRuns({source}:{source?:string}){
     <p className="muted">Saved results from <code>results/</code> via <code>/api/v1/chaos</code>. {source==='fixture'?'The API is in fixture mode, so any runs shown here may be synthetic examples. ':''}Starting, stopping and recovering need <code>CHAOS_EXECUTION_ENABLED=true</code> on the API.</p>
     {message&&<div role="status" className="notice">{message}<button aria-label="Dismiss message" onClick={()=>setMessage('')}>×</button></div>}
 
+    <FirstRunChecklist env={env}/>
     <ScoreCard score={score} onOpenRun={openRun}/>
     {leftover&&<section className="chaos-banner" role="alert"><AlertTriangle size={20}/><div><strong>A fault is still in place</strong><p>No controller is running, but a fault on <code>{active!.fault?.target??'a target'}</code> was not restored.</p></div><button className="primary" disabled={busy||execOff} title={execOff?'Execution disabled':'Restore the leftover fault'} onClick={()=>call('/recover','POST',refreshActive)}><RotateCcw size={16}/> Recover</button></section>}
 
@@ -91,7 +103,7 @@ export function ChaosRuns({source}:{source?:string}){
 
     <div className="grid">
       <section className="panel"><h2>Experiments</h2>
-        {experiments.length===0&&<p className="empty">No experiment files found.</p>}
+        {experiments.length===0&&<p className="empty">No experiment files found in <code>experiments/</code>. Add one (see the README) and reload.</p>}
         {experiments.map(x=><div className="catalog" key={x.id}>
           <span className="catalog-id">{x.fault??'?'}</span>
           <div><strong>{x.id}</strong><p>{x.target} · {x.duration_s}s</p></div>
@@ -100,7 +112,7 @@ export function ChaosRuns({source}:{source?:string}){
         {execOff&&<p className="muted">Execution disabled: Run, Stop and Recover stay grey until the API is started with CHAOS_EXECUTION_ENABLED=true.</p>}
       </section>
       <section className="panel"><h2>Runs</h2>
-        {runs.length===0?<p className="empty">No saved runs yet.</p>:<div className="chaos-table-wrap"><table className="chaos-table"><thead><tr><th>Experiment</th><th>Fault</th><th>Target</th><th>Error rate</th><th>p95 (base → fault)</th><th>Recovery</th><th>Stop reason</th></tr></thead><tbody>
+        {runs.length===0?<p className="empty">No runs yet. Start one from Experiments.</p>:<div className="chaos-table-wrap"><table className="chaos-table"><thead><tr><th>Experiment</th><th>Fault</th><th>Target</th><th>Error rate</th><th>p95 (base → fault)</th><th>Recovery</th><th>Stop reason</th></tr></thead><tbody>
           {runs.map(r=><tr key={r.run_id} className={(r.recovered===false?'bad ':'')+(r.run_id===selected?'selected':'')} onClick={()=>openRun(r.run_id)} tabIndex={0} onKeyDown={e=>{if(e.key==='Enter')openRun(r.run_id);}}>
             <td>{r.experiment}</td><td>{r.fault??'n/a'}</td><td>{r.target}</td><td>{pct(r.during_error_rate)}</td><td>{ms(r.baseline_p95_ms)} → {ms(r.during_p95_ms)}</td>
             <td>{r.recovered===false?'NOT RECOVERED':secs(r.recovery_s)}</td><td>{r.stop_reason??'n/a'}</td></tr>)}
@@ -110,7 +122,7 @@ export function ChaosRuns({source}:{source?:string}){
 
     {findings&&<FindingsPanel data={findings} onOpen={openRun} onError={e=>setMessage(refusalMessage(e))}/>}
     {suggested&&<SuggestedExperiments data={suggested} onCopied={()=>setMessage('Experiment JSON copied. Review it, then save it under experiments/ to make it runnable.')}/>}
-    {detail&&<RunDetail run={detail}/>}
+    {detail?<RunDetail run={detail}/>:runs.length>0&&<p className="muted">Select a run above to see its chart and the stop reason.</p>}
   </div>;
 }
 
@@ -176,7 +188,7 @@ function FindingsPanel({data,onOpen,onError}:{data:Findings;onOpen:(id:string)=>
     <div className="panel-title"><h2>Findings</h2><span><button onClick={()=>save('md')}>Download Markdown</button> <button onClick={()=>save('html')}>Download HTML</button></span></div>
     <p className="muted">Ranked by severity from {data.runs_analyzed} saved run(s). Every finding cites its runs; numbers come from the run records. {data.runs_without_findings} run(s) showed no weakness, {data.runs_not_evaluated} not evaluated.</p>
     {data.limitations.map(l=><p key={l} className="muted">{l}</p>)}
-    {data.findings.length===0&&<p className="empty">No weaknesses found in the saved runs.</p>}
+    {data.findings.length===0&&<p className="empty">{data.runs_analyzed===0?'No runs yet, so there are no findings. They appear after your first run.':'No weaknesses found in the saved runs.'}</p>}
     {data.findings.map(f=><article className={'finding-card sev'+f.severity+(f.status&&f.status!=='open'?' status-'+f.status:'')} key={f.id}>
       <div><span className={'small-tag sev'+f.severity}>{f.severity_label.toUpperCase()}</span> {f.status&&f.status!=='open'&&<span className={'small-tag status-'+f.status} data-status={f.status}>{(f.status_label??f.status).toUpperCase()}</span>} <strong>{f.title}</strong></div>
       <p>{f.explanation}</p>

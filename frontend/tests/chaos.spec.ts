@@ -29,14 +29,16 @@ const partialScore={formula_version:1,score:65.2,headline:'65.2 (partial: 2 of 9
   unmapped_targets:[],runs_not_scored:[]};
 const nullScore={formula_version:1,score:null,headline:'n/a (no scored runs yet)',complete:false,weights:{},safety_stop_cap:50,
   coverage:{tested:0,possible:9,fraction:0,untested:[]},targets:[],unmapped_targets:[],runs_not_scored:[]};
+const readyEnv={execution_enabled:true,sandbox:{url:'http://127.0.0.1:5000/hotels',reachable:true,status:200},prometheus:{reachable:true,status:200},runs_saved:1,checked_at:t0};
 const idle={running:false,experiment:null,pid:null,started_at:null,exit_code:null,run_id:null,fault_active:false,fault:null,stop_requested:false,log_tail:[]};
 
-async function mockChaos(page:Page,active:object,onRun?:()=>{status:number,body:object},metrics:{status:number,body:object}=defaultMetrics,scoreBody:object=partialScore,findingsBody:object=findings,proposalsBody:object=proposals){
+async function mockChaos(page:Page,active:object,onRun?:()=>{status:number,body:object},metrics:{status:number,body:object}=defaultMetrics,scoreBody:object=partialScore,findingsBody:object=findings,proposalsBody:object=proposals,envBody:object=readyEnv,runsBody:object[]=index){
   await page.route('**/api/v1/chaos/**',route=>{
     const url=new URL(route.request().url());const path=url.pathname.replace('/api/v1/chaos','');
     const json=(body:object,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
     if(path==='/experiments')return json([{id:'hotel_geo_stop',name:'hotel_geo_stop',target:'hotel-sandbox-geo-1',fault:'container_stop',duration_s:20}]);
-    if(path==='/runs')return json(index);
+    if(path==='/environment')return json(envBody);
+    if(path==='/runs')return json(runsBody);
     if(path==='/runs/'+run.run_id+'/metrics')return json(metrics.body,metrics.status);
     if(path==='/runs/'+run.run_id)return json(run);
     if(path==='/score')return json(scoreBody);
@@ -312,4 +314,93 @@ test('an open finding has no status tag and keeps its wording',async({page})=>{
   await expect(card).toContainText('In 1 run(s), the system did not recover');
   await expect(card.locator('[data-status]')).toHaveCount(0);
   await expect(card.locator('.latest-state')).toHaveCount(0);
+});
+
+// ---- G3: empty and first-run states --------------------------------------------------------------------------
+
+const env=(over:Record<string,unknown>={})=>({execution_enabled:true,sandbox:{url:'http://127.0.0.1:5000/hotels',reachable:true,status:200},
+  prometheus:{reachable:true,status:200},runs_saved:3,checked_at:t0,...over});
+const noFindings={findings:[],runs_analyzed:0,runs_without_findings:0,runs_not_evaluated:0,limitations:[],llm:{mode:'deterministic',model:null,location:null}};
+const checklist=(page:Page)=>page.getByLabel('Getting started');
+
+test('a fresh clone with no runs says what to do next in every panel',async({page})=>{
+  await mockChaos(page,idle,undefined,undefined,nullScore,noFindings,undefined,env({runs_saved:0}),[]);await openChaosRuns(page);
+  await expect(checklist(page).locator('[data-item="no-runs"]')).toContainText('Start one from Experiments below');
+  await expect(page.getByLabel('Runs').or(page.locator('section.panel',{hasText:'Runs'})).first()).toBeVisible();
+  await expect(page.getByText('No runs yet. Start one from Experiments.')).toBeVisible();
+  await expect(page.getByLabel('Resilience score',{exact:true})).toContainText('No scored runs yet');
+  await expect(page.getByLabel('Findings')).toContainText('No runs yet, so there are no findings');
+  await expect(page.getByLabel('Findings')).not.toContainText('No weaknesses found');
+  await expect(page.getByLabel('Run detail')).toHaveCount(0);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('when everything is ready no getting-started panel is shown',async({page})=>{
+  await mockChaos(page,idle);await openChaosRuns(page);
+  await expect(page.getByText('Select a run above to see its chart and the stop reason.')).toBeVisible();
+  await expect(checklist(page)).toHaveCount(0);
+});
+
+test('execution disabled is explained up front with the command to enable it',async({page})=>{
+  await mockChaos(page,{...idle,execution_enabled:false},undefined,undefined,undefined,undefined,undefined,env({execution_enabled:false}));await openChaosRuns(page);
+  const item=checklist(page).locator('[data-item="execution"]');
+  await expect(item).toContainText('Execution is disabled');
+  await expect(item.locator('code')).toContainText('python scripts/dev.py up --execute');
+  await expect(checklist(page)).toContainText('ACTION NEEDED');
+  await expect(page.getByRole('button',{name:'Run',exact:true})).toBeDisabled();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('a stopped sandbox is explained with how to start it',async({page})=>{
+  await mockChaos(page,idle,undefined,undefined,undefined,undefined,undefined,env({sandbox:{url:'http://127.0.0.1:5000/hotels',reachable:false,status:null}}));await openChaosRuns(page);
+  const item=checklist(page).locator('[data-item="sandbox"]');
+  await expect(item).toContainText('The hotel sandbox is not running');
+  await expect(item).toContainText('http://127.0.0.1:5000/hotels');
+  await expect(item.locator('code')).toContainText('python scripts/dev.py up');
+});
+
+test('an unhealthy sandbox is named with its HTTP status',async({page})=>{
+  await mockChaos(page,idle,undefined,undefined,undefined,undefined,undefined,env({sandbox:{url:'http://127.0.0.1:5000/hotels',reachable:true,status:503}}));await openChaosRuns(page);
+  const item=checklist(page).locator('[data-item="sandbox-unhealthy"]');
+  await expect(item).toContainText('HTTP 503');
+  await expect(item.locator('code')).toContainText('python scripts/dev.py status');
+  await expect(checklist(page).locator('[data-item="sandbox"]')).toHaveCount(0);
+});
+
+test('Prometheus being down is a quiet hint, and run detail still works',async({page})=>{
+  await mockChaos(page,idle,undefined,{status:200,body:{window:{start:t0,end:t0},step_s:1,available:false,reason:'prometheus unreachable',series:{}}},
+    undefined,undefined,undefined,env({prometheus:{reachable:false,status:null}}));await openChaosRuns(page);
+  const item=checklist(page).locator('[data-item="prometheus"]');
+  await expect(item).toContainText('Prometheus is not running');
+  await expect(item).toContainText('Experiments still work');
+  await expect(checklist(page)).toContainText('FOR INFORMATION');
+  await page.getByRole('row',{name:/hotel_geo_stop/}).click();
+  await expect(page.getByTestId('prom-note')).toContainText('prometheus unreachable');
+  await expect(page.getByLabel('Run detail').getByRole('img',{name:/Latency over time/})).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('every problem at once is listed, uses cold colours and fits a phone screen',async({page})=>{
+  await mockChaos(page,{...idle,execution_enabled:false},undefined,undefined,nullScore,noFindings,undefined,
+    env({execution_enabled:false,runs_saved:0,sandbox:{url:'http://127.0.0.1:5000/hotels',reachable:false,status:null},prometheus:{reachable:false,status:null}}),[]);
+  await page.setViewportSize({width:390,height:844});await openChaosRuns(page);
+  for(const id of ['execution','sandbox','prometheus','no-runs'])await expect(checklist(page).locator(`[data-item="${id}"]`)).toBeVisible();
+  expect(await warmColours(page)).toEqual([]);
+  // Name the elements that stick out, so a failure says what to fix rather than only that something is too wide.
+  const sticksOut=await page.evaluate(()=>[...document.body.querySelectorAll('*')].filter(e=>{
+    const r=e.getBoundingClientRect();return r.width>0&&r.right>window.innerWidth+0.5&&!e.closest('table');
+  }).slice(0,12).map(e=>`${e.tagName.toLowerCase()}.${String(e.className).slice(0,40)} right=${Math.round(e.getBoundingClientRect().right)} of ${window.innerWidth}: "${(e.textContent??'').trim().slice(0,30)}"`));
+  expect(sticksOut).toEqual([]);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth)).toBe(false);
+});
+
+test('the environment status refreshes, so starting the sandbox clears its item',async({page})=>{
+  let reachable=false;
+  await mockChaos(page,idle);
+  await page.route('**/api/v1/chaos/environment',route=>route.fulfill({status:200,contentType:'application/json',
+    body:JSON.stringify(env({sandbox:{url:'http://127.0.0.1:5000/hotels',reachable,status:reachable?200:null}}))}));
+  await openChaosRuns(page);
+  await expect(checklist(page).locator('[data-item="sandbox"]')).toBeVisible();
+  reachable=true;
+  await expect(checklist(page)).toHaveCount(0,{timeout:15000});
 });
