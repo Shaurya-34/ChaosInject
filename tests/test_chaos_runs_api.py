@@ -1,9 +1,13 @@
 """/api/v1/chaos: wraps chaos.controller and chaos.hooks. No Docker: the controller spawn is faked."""
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from jsonschema import Draft202012Validator
 
 from app.adapters.fixtures import fixture_ports
 from app.api import chaos_runs
@@ -13,16 +17,28 @@ from chaos import controller, hooks
 
 TOKEN = "chaos-api-test-token-00000000000000000"
 SCHEMA = json.loads((Path(__file__).resolve().parent.parent / "contracts" / "run.schema.json").read_text())
+Draft202012Validator.check_schema(SCHEMA)
+
+
+def validate(instance, schema=SCHEMA):
+    Draft202012Validator({**schema, "$defs": SCHEMA["$defs"]}).validate(instance)
 
 
 class FakeProc:
+    """Stands in for the controller process: takes the run lock like the real one does."""
     pid = 4242
 
-    def __init__(self):
+    def __init__(self, path):
         self.returncode = None
+        controller.lock_path().write_text(json.dumps(
+            {"pid": os.getpid(), "experiment": str(path), "started_at": 1.0}))  # our pid: alive
 
     def poll(self):
         return self.returncode
+
+    def finish(self, code=0):
+        controller.lock_path().unlink()
+        self.returncode = code
 
 
 @pytest.fixture
@@ -36,7 +52,7 @@ def spawned(monkeypatch):
     procs = []
 
     def fake_spawn(path):
-        procs.append(FakeProc())
+        procs.append(FakeProc(path))
         return procs[-1]
 
     monkeypatch.setattr(chaos_runs, "_spawn", fake_spawn)
@@ -75,9 +91,16 @@ def test_runs_list_and_detail_match_contract(results):
         rows = c.get("/api/v1/chaos/runs").json()
         detail = c.get(f"/api/v1/chaos/runs/{run_id}").json()
     assert rows[0]["run_id"] == run_id
-    assert set(SCHEMA["$defs"]["IndexEntry"]["required"]) <= set(rows[0])
-    assert set(SCHEMA["required"]) <= set(detail)
-    assert set(SCHEMA["$defs"]["PhaseSummary"]["required"]) <= set(detail["summary"]["during"])
+    assert (rows[0]["fault"], rows[0]["duration_s"]) == ("container_stop", 20)
+    validate(rows[0], SCHEMA["$defs"]["IndexEntry"])
+    validate(detail)
+
+
+def test_contract_rejects_a_broken_record(results):
+    detail = hooks.load_result(saved_run(results))
+    detail["during"][0]["ok"] = "yes"
+    with pytest.raises(Exception, match="is not of type 'boolean'"):
+        validate(detail)
 
 
 def test_run_detail_unknown_and_bad_ids(results):
@@ -97,7 +120,7 @@ def test_execution_disabled_by_default(results, spawned):
 def test_start_status_stop_and_finish(results, spawned):
     with client(True) as c:
         r = c.post("/api/v1/chaos/experiments/hotel_geo_stop/run")
-        assert r.status_code == 202 and r.json()["pid"] == 4242
+        assert r.status_code == 202 and r.json()["experiment"] == "hotel_geo_stop"
         assert c.post("/api/v1/chaos/experiments/hotel_geo_stop/run").status_code == 409  # one at a time
         assert c.get("/api/v1/chaos/active").json()["running"] is True
 
@@ -106,10 +129,38 @@ def test_start_status_stop_and_finish(results, spawned):
         assert c.get("/api/v1/chaos/active").json()["stop_requested"] is True
 
         (results / ".active_run.log").write_text("restored x\nsaved: results/20261017-1-x-abc123.json\n")
-        spawned[0].returncode = 0
+        spawned[0].finish(0)
         a = c.get("/api/v1/chaos/active").json()
     assert (a["running"], a["exit_code"], a["run_id"]) == (False, 0, "20261017-1-x-abc123")
     assert len(spawned) == 1
+
+
+def test_run_state_survives_api_restart(results, spawned):
+    with client(True) as c:
+        assert c.post("/api/v1/chaos/experiments/hotel_geo_stop/run").status_code == 202
+    with client(True) as fresh:  # a new API process: no in-memory handle
+        a = fresh.get("/api/v1/chaos/active").json()
+        assert (a["running"], a["experiment"], a["pid"]) == (True, "hotel_geo_stop", os.getpid())
+        assert fresh.post("/api/v1/chaos/experiments/hotel_geo_stop/run").status_code == 409
+        assert fresh.post("/api/v1/chaos/active/stop").status_code == 202
+        assert fresh.post("/api/v1/chaos/recover").status_code == 409
+    assert len(spawned) == 1
+
+
+def test_cli_run_blocks_api_start(results, spawned):
+    controller.lock_path().write_text(json.dumps({"pid": os.getpid(), "experiment": "experiments/x.json"}))
+    with client(True) as c:
+        assert c.post("/api/v1/chaos/experiments/hotel_geo_stop/run").status_code == 409
+    assert spawned == []
+
+
+def test_stale_lock_does_not_block(results, spawned):
+    dead = subprocess.Popen([sys.executable, "-c", "pass"])
+    dead.wait()
+    controller.lock_path().write_text(json.dumps({"pid": dead.pid, "experiment": "experiments/x.json"}))
+    with client(True) as c:
+        assert c.get("/api/v1/chaos/active").json()["running"] is False
+        assert c.post("/api/v1/chaos/experiments/hotel_geo_stop/run").status_code == 202
 
 
 def test_stop_without_active_run_conflicts(results, spawned):

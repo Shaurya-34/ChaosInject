@@ -80,6 +80,8 @@
         "file": {"type": "string"},
         "experiment": {"type": ["string", "null"]},
         "target": {"type": ["string", "null"]},
+        "fault": {"type": ["string", "null"], "description": "Missing in rows written before this field was added."},
+        "duration_s": {"type": ["number", "null"]},
         "fault_started": {"type": ["number", "null"]},
         "fault_ended": {"type": ["number", "null"]},
         "stop_reason": {"type": ["string", "null"]},

@@ -1,5 +1,7 @@
 import json
+import os
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -308,6 +310,56 @@ class ControllerTest(unittest.TestCase):
                 f.restore("web")
 
 
+def dead_pid():
+    p = subprocess.Popen([sys.executable, "-c", "pass"])
+    p.wait()
+    return p.pid
+
+
+class RunLockTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        patcher = mock.patch.object(hooks, "RESULTS_DIR", Path(self.tmp.name))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.addCleanup(self.tmp.cleanup)
+
+    def test_pid_alive(self):
+        self.assertTrue(controller.pid_alive(os.getpid()))
+        self.assertFalse(controller.pid_alive(dead_pid()))
+
+    def test_acquire_and_release(self):
+        controller.acquire_lock("exp.json")
+        self.assertEqual(controller.read_lock()["pid"], os.getpid())
+        controller.release_lock()
+        self.assertFalse(controller.lock_path().exists())
+
+    def test_live_lock_refuses_second_run(self):
+        controller.lock_path().write_text(json.dumps({"pid": os.getpid(), "experiment": "first"}))
+        with self.assertRaisesRegex(PolicyError, "another run is in progress"):
+            controller.acquire_lock("second")
+
+    def test_stale_lock_is_taken_over(self):
+        controller.lock_path().write_text(json.dumps({"pid": dead_pid(), "experiment": "old"}))
+        self.assertIsNone(controller.read_lock())
+        controller.acquire_lock("new")
+        self.assertEqual(controller.read_lock()["experiment"], "new")
+
+    def test_release_leaves_someone_elses_lock(self):
+        controller.lock_path().write_text(json.dumps({"pid": os.getpid() + 1}))
+        controller.release_lock()
+        self.assertTrue(controller.lock_path().exists())
+
+    def test_main_refused_while_locked_keeps_stop_request(self):
+        controller.lock_path().write_text(json.dumps({"pid": os.getpid(), "experiment": "first"}))
+        controller.stop_path().write_text("")
+        with mock.patch.object(controller, "run") as run_mock, self.assertRaises(SystemExit) as exit_:
+            controller.main(["controller", "exp.json"])
+        self.assertIn("another run is in progress", str(exit_.exception))
+        run_mock.assert_not_called()
+        self.assertTrue(controller.stop_path().exists())  # the first run's stop request survives
+
+
 class BaselineCheckTest(unittest.TestCase):
     def test_unhealthy_baseline_refuses_without_injecting(self):
         f = FakeFault()
@@ -362,7 +414,9 @@ class BaselineCheckTest(unittest.TestCase):
     def test_main_saves_refused_run(self):
         refused = {"stop_reason": "refused: baseline already unhealthy", "refused": True,
                    "baseline": [], "during": [], "recovery": [], "recovered": False, "recovery_s": None}
-        with mock.patch.object(controller, "run", return_value=refused), \
+        with tempfile.TemporaryDirectory() as d, \
+                mock.patch.object(hooks, "RESULTS_DIR", Path(d)), \
+                mock.patch.object(controller, "run", return_value=refused), \
                 mock.patch.object(hooks, "save_result", return_value="results/x.json") as save, \
                 mock.patch.object(controller.Path, "read_text", return_value="{}"), \
                 mock.patch("builtins.print") as out:

@@ -1,8 +1,10 @@
 """Real chaos runs: wraps chaos.controller (as a subprocess) and chaos.hooks (results store).
 
 Reads are always allowed. Starting, stopping and recovering need CHAOS_EXECUTION_ENABLED=true.
-The controller runs in its own process group, so an API crash or restart never interrupts a
-fault restore; it stops via results/.stop_request, which the controller checks every probe.
+The controller runs in its own process group, so it keeps running (and restores its fault) if
+the API exits; it stops via results/.stop_request, which the controller checks every probe.
+Run state comes from the controller's lock file (results/.active_run.json), not API memory, so
+it survives an API restart.
 """
 import json
 import os
@@ -75,10 +77,13 @@ def _saved_run_id(lines):
 
 def create_router(execution_enabled: bool) -> APIRouter:
     router = APIRouter(prefix="/api/v1/chaos", tags=["chaos"])
-    active = {"proc": None, "experiment": None, "started_at": None}
+    active = {"proc": None, "experiment": None, "started_at": None}  # last run started by this API
 
     def running():
-        return active["proc"] is not None and active["proc"].poll() is None
+        # The lock covers every phase and survives API restarts; the handle covers the moment
+        # between spawning and the controller taking the lock.
+        spawned = active["proc"] is not None and active["proc"].poll() is None
+        return spawned or controller.read_lock() is not None
 
     def require_execution():
         if not execution_enabled:
@@ -105,19 +110,26 @@ def create_router(execution_enabled: bool) -> APIRouter:
             raise PortError("CONFLICT")
         controller.stop_path().unlink(missing_ok=True)
         active.update(proc=_spawn(path), experiment=name, started_at=time.time())
-        return {"experiment": name, "pid": active["proc"].pid, "started_at": active["started_at"]}
+        # No pid here: on Windows a venv's python.exe is a launcher, so the controller's real pid
+        # appears in GET /active once it takes the run lock.
+        return {"experiment": name, "started_at": active["started_at"]}
 
     @router.get("/active")
     async def active_run():
         marker = controller.marker_path()
         proc = active["proc"]
-        lines = _log_tail() if proc else []
+        lock = controller.read_lock()
+        lines = _log_tail()
         is_running = running()
+        if lock:  # a run in progress, possibly started before this API process
+            experiment, pid, started_at = Path(lock["experiment"]).stem, lock["pid"], lock.get("started_at")
+        else:
+            experiment, started_at, pid = active["experiment"], active["started_at"], None
         return {
             "running": is_running,
-            "experiment": active["experiment"],
-            "pid": proc.pid if proc else None,
-            "started_at": active["started_at"],
+            "experiment": experiment,
+            "pid": pid,
+            "started_at": started_at,
             "exit_code": None if proc is None or is_running else proc.returncode,
             "run_id": None if is_running else _saved_run_id(lines),
             "fault_active": marker.exists(),
@@ -141,9 +153,15 @@ def create_router(execution_enabled: bool) -> APIRouter:
         if running():
             raise PortError("CONFLICT")
         try:
+            controller.acquire_lock("--recover")
+        except controller.PolicyError:
+            raise PortError("CONFLICT")  # a controller started in the meantime
+        try:
             target = controller.recover_abandoned(controller.marker_path(), _policy(), log=lambda msg: None)
         except controller.PolicyError:
             raise PortError("POLICY_REFUSED", 422)
+        finally:
+            controller.release_lock()
         return {"restored": target}
 
     @router.get("/runs")

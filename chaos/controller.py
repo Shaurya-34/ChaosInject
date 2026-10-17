@@ -5,9 +5,11 @@ Usage: python -m chaos.controller experiments/dummy_web_stop.json
 Kill switch: Ctrl+C, or create results/.stop_request (used by the API). The fault is always
 restored, even on error or interrupt.
 If the process itself is killed, the next run (or --recover) restores the leftover fault first.
+Only one controller runs at a time: results/.active_run.json holds the running controller's pid.
 """
 
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -62,6 +64,67 @@ def marker_path():
 def stop_path():
     """Creating this file asks a running controller to stop and restore (a kill switch without Ctrl+C)."""
     return hooks.RESULTS_DIR / ".stop_request"
+
+
+def lock_path():
+    """Exists while a controller process runs (any phase); holds its pid."""
+    return hooks.RESULTS_DIR / ".active_run.json"
+
+
+def pid_alive(pid):
+    if os.name == "nt":  # os.kill(pid, 0) would terminate the process on Windows
+        import ctypes
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        handle = kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not handle:
+            return ctypes.get_last_error() == 5  # access denied: exists, owned by someone else
+        try:
+            code = ctypes.c_ulong()
+            return bool(kernel32.GetExitCodeProcess(handle, ctypes.byref(code))) and code.value == 259  # STILL_ACTIVE
+        finally:
+            kernel32.CloseHandle(handle)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def read_lock():
+    """The live lock's contents, or None if no controller is running (a stale lock counts as none)."""
+    try:
+        info = json.loads(lock_path().read_text())
+    except (FileNotFoundError, ValueError):
+        return None
+    return info if isinstance(info.get("pid"), int) and pid_alive(info["pid"]) else None
+
+
+def acquire_lock(experiment):
+    """Claim the run lock for this process, or raise PolicyError if another controller holds it."""
+    path = lock_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    info = {"pid": os.getpid(), "experiment": experiment, "started_at": time.time()}
+    for _ in range(2):
+        try:
+            with open(path, "x") as fh:  # atomic: fails if the file exists
+                fh.write(json.dumps(info))
+            return
+        except FileExistsError:
+            held = read_lock()
+            if held:
+                raise PolicyError(f"another run is in progress ({held.get('experiment')}, pid {held['pid']})")
+            path.unlink(missing_ok=True)  # stale lock from a dead controller
+    raise PolicyError("could not acquire the run lock")
+
+
+def release_lock():
+    try:
+        if json.loads(lock_path().read_text()).get("pid") == os.getpid():
+            lock_path().unlink()
+    except (FileNotFoundError, ValueError):
+        pass
 
 
 def recover_abandoned(marker, policy, faults=FAULTS, log=print):
@@ -168,6 +231,17 @@ def main(argv):
     if len(argv) != 2:
         sys.exit(__doc__)
     policy = json.loads(POLICY_PATH.read_text())
+    try:
+        acquire_lock("--recover" if argv[1] == "--recover" else argv[1])
+    except PolicyError as e:
+        sys.exit(f"refused: {e}")
+    try:
+        _main_locked(argv, policy)
+    finally:
+        release_lock()
+
+
+def _main_locked(argv, policy):
     marker = marker_path()
     if argv[1] == "--recover":
         try:
