@@ -134,7 +134,13 @@ def env(monkeypatch):
     return monkeypatch
 
 
-def test_default_endpoint_is_a_local_ollama_and_needs_no_key(env):
+def test_there_is_no_default_endpoint(env):
+    transport, location, notes = lt.transport_from_env()
+    assert transport is None and location is None and "LLM_BASE_URL is not set" in notes[0] and "groq.com" in notes[0]
+
+
+def test_a_local_ollama_endpoint_needs_no_key(env):
+    env.setenv("LLM_BASE_URL", "http://127.0.0.1:11434/v1")
     transport, location, notes = lt.transport_from_env()
     assert callable(transport) and location == "local" and notes == []
 
@@ -165,6 +171,8 @@ def test_provider_from_env_builds_a_live_provider_only_when_it_can(env):
     provider, notes = provider_from_env()  # no model
     assert provider.mode == "deterministic" and "INTELLIGENCE_LIVE_MODEL" in notes[0]
     env.setenv("INTELLIGENCE_LIVE_MODEL", "llama-3.3-70b-versatile")
+    provider, notes = provider_from_env()  # no base URL: there is no default
+    assert provider.mode == "deterministic" and "LLM_BASE_URL is not set" in notes[0]
     env.setenv("LLM_BASE_URL", GROQ)
     provider, notes = provider_from_env()  # hosted, no key
     assert provider.mode == "deterministic" and "LLM_API_KEY" in notes[0]

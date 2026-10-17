@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from .injection_agent import affected_endpoints, node_for_target
-from .llm_transport import ExplanationCache, cache_key
+from .llm_transport import MAX_ITEMS_PER_CALL, ExplanationCache, cache_key
 from .reasoning import ReasoningBudget, ReasoningProvider
 
 SEVERITY_LABELS = {
@@ -337,7 +337,7 @@ def enrich_explanations(
             cached = cache.get(keys[f["id"]])
             if cached is not None and valid(f, cached):
                 texts[f["id"]] = cached
-    pending = [f for f in findings if f["id"] not in texts]
+    pending = [f for f in findings if f["id"] not in texts][:MAX_ITEMS_PER_CALL]
     if pending:
         payload = json.dumps([item(f) for f in pending], sort_keys=True)
         for _ in range(max(1, budget.max_attempts)):

@@ -31,7 +31,7 @@ if str(ROOT) not in sys.path:  # chaos/ lives at the repo root, beside backend/
 
 from chaos.controller import PolicyError, check_policy  # noqa: E402  (read-only use: validation only)
 
-from .llm_transport import ExplanationCache, cache_key  # noqa: E402
+from .llm_transport import MAX_ITEMS_PER_CALL, ExplanationCache, cache_key  # noqa: E402
 from .reasoning import ReasoningBudget, ReasoningProvider  # noqa: E402
 
 PROBE_URL = "http://127.0.0.1:5000/hotels?inDate=2015-04-09&outDate=2015-04-10&lat=38.0235&lon=-122.095"
@@ -271,7 +271,7 @@ def enrich_rationales(
             cached = cache.get(keys[name])
             if cached is not None and valid(p, cached):
                 texts[name] = cached
-    pending = [p for p in proposals if p["experiment"]["name"] not in texts]
+    pending = [p for p in proposals if p["experiment"]["name"] not in texts][:MAX_ITEMS_PER_CALL]
     if pending:
         payload = json.dumps([item(p) for p in pending], sort_keys=True)
         for _ in range(max(1, budget.max_attempts)):

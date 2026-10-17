@@ -5,7 +5,7 @@ comes from the environment:
 
   INTELLIGENCE_REASONING_MODE=live      turns it on (anything else keeps the rule-based text)
   INTELLIGENCE_LIVE_MODEL=<model id>    e.g. llama-3.3-70b-versatile (Groq) or qwen2.5:7b (Ollama)
-  LLM_BASE_URL=<url>                    default http://127.0.0.1:11434/v1; Groq: https://api.groq.com/openai/v1
+  LLM_BASE_URL=<url>                    no default; Groq: https://api.groq.com/openai/v1
   LLM_API_KEY=<key>                     required for a hosted endpoint; never logged, never put in a URL
 
 The model may only reword explanation text (see ``enrich_rationales`` / ``enrich_explanations``): rankings,
@@ -23,6 +23,7 @@ import json
 import os
 import re
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Any, Callable
@@ -30,10 +31,28 @@ from urllib.parse import urlparse
 
 import httpx
 
-DEFAULT_BASE_URL = "http://127.0.0.1:11434/v1"
+MAX_ITEMS_PER_CALL = 10   # at most this many findings/proposals go to the model in one request
+BACKOFF_S = 30.0          # after a 429, a 5xx, a timeout or an unreachable host, send nothing for this long
+MAX_BACKOFF_S = 120.0     # ... or for Retry-After, whichever is larger, but never longer than this
 _LOOPBACK = {"127.0.0.1", "localhost", "::1"}
 _FENCE = re.compile(r"^\s*```(?:json)?\s*(.*?)\s*```\s*$", re.S)
 CACHE_LIMIT = 500
+
+
+_clock = time.monotonic
+_backoff_until: dict[str, float] = {}
+_backoff_lock = threading.Lock()
+
+
+def reset_backoff() -> None:
+    """Forget every backoff (tests, or after the user fixes the endpoint)."""
+    with _backoff_lock:
+        _backoff_until.clear()
+
+
+def _start_backoff(host: str, seconds: float) -> None:
+    with _backoff_lock:
+        _backoff_until[host] = _clock() + min(max(seconds, BACKOFF_S), MAX_BACKOFF_S)
 
 
 class LLMError(RuntimeError):
@@ -58,11 +77,16 @@ def make_transport(
     """Build a ``(system, user, max_tokens, timeout_s) -> text`` transport for ``chat/completions``."""
 
     url = base_url.rstrip("/") + "/chat/completions"
+    host = _host(base_url)
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = "Bearer " + api_key
 
     def transport(system: str, user: str, max_tokens: int, timeout_s: float) -> str:
+        with _backoff_lock:
+            wait = _backoff_until.get(host, 0.0) - _clock()
+        if wait > 0:  # a recent 429/5xx/timeout: do not hammer the API; the rule-based text is used meanwhile
+            raise LLMError(f"backing off for {int(wait) + 1}s after a rate limit or server error")
         body: dict[str, Any] = {
             "model": model,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
@@ -78,10 +102,18 @@ def make_transport(
                     body.pop("response_format")
                     response = client.post(url, headers=headers, json=body)
         except httpx.TimeoutException:
+            _start_backoff(host, BACKOFF_S)
             raise LLMError("the model request timed out") from None
         except httpx.HTTPError as e:
+            _start_backoff(host, BACKOFF_S)
             raise LLMError(f"the model endpoint is unreachable ({type(e).__name__})") from None
         if response.status_code != 200:
+            if response.status_code == 429 or response.status_code >= 500:
+                try:
+                    retry_after = float(response.headers.get("retry-after", ""))
+                except ValueError:
+                    retry_after = BACKOFF_S
+                _start_backoff(host, retry_after)
             raise LLMError(f"the model endpoint answered HTTP {response.status_code}")
         try:
             content = response.json()["choices"][0]["message"]["content"]
@@ -99,8 +131,10 @@ def transport_from_env() -> tuple[Callable[[str, str, int, float], str] | None, 
     """``(transport, location, notes)`` from the environment, or ``(None, None, [why not])``."""
 
     model = os.environ.get("INTELLIGENCE_LIVE_MODEL", "").strip()
-    base_url = os.environ.get("LLM_BASE_URL", "").strip() or DEFAULT_BASE_URL
+    base_url = os.environ.get("LLM_BASE_URL", "").strip()
     key = os.environ.get("LLM_API_KEY", "").strip()
+    if not base_url:
+        return None, None, ["LLM_BASE_URL is not set (Groq: https://api.groq.com/openai/v1); rule-based explanations are shown."]
     parsed = urlparse(base_url)
     if parsed.scheme not in ("http", "https") or not parsed.hostname:
         return None, None, ["LLM_BASE_URL is not a valid http(s) URL; rule-based explanations are shown."]
@@ -158,5 +192,6 @@ def fallback_limitation(provider_mode: str, total: int, from_model: int) -> str 
     if provider_mode != "live" or total == 0 or from_model >= total:
         return None
     missing = total - from_model
-    return (f"The language model gave no usable text for {missing} of {total} item(s) "
-            "(unreachable, too slow, an unexpected answer, or a number that was not in the evidence); rule-based text is shown for them.")
+    return (f"The language model gave no usable text for {missing} of {total} item(s) (unreachable, rate-limited, too slow, "
+            f"an unexpected answer, a number that was not in the evidence, or beyond the cap of {MAX_ITEMS_PER_CALL} per request); "
+            "rule-based text is shown for them.")
