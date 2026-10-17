@@ -46,35 +46,41 @@ class HotelSetupTests(unittest.TestCase):
         self.assertEqual(output["services"]["review"]["depends_on"]["mongodb-review"]["condition"], "service_healthy")
         self.assertEqual(output["services"]["frontend"]["platform"], "linux/amd64")
 
-    def test_fix_rate_builds_rate_from_patched_source(self):
+    def test_fix_cache_builds_rate_and_profile_from_patched_source(self):
         names = prepare.APP_SERVICES | {"consul", "jaeger"}
         names |= {"mongodb-" + x for x in ("geo", "rate", "profile", "recommendation", "reservation", "user", "review", "attractions")}
         names |= {"memcached-" + x for x in ("rate", "profile", "reserve", "review")}
         model = {"services": {name: {"image": "x"} for name in names}}
         lock = json.loads((ROOT / "sandbox/hotel/images.lock.json").read_text())
-        rate = prepare.configure(model, lock, Path("/tmp/source"), fix_rate=True)["services"]["rate"]
-        self.assertEqual(rate["build"]["dockerfile"], "Dockerfile.rate-fix")
-        self.assertTrue(rate["image"].endswith("-cache-fallback"))
-        self.assertNotIn("platform", rate)
+        services = prepare.configure(model, lock, Path("/tmp/source"), fix_cache=True)["services"]
+        for name in ("rate", "profile"):
+            self.assertEqual(services[name]["build"]["dockerfile"], "Dockerfile.cache-fix")
+            self.assertEqual(services[name]["image"].split("/")[1].split(":")[0], name)
+            self.assertTrue(services[name]["image"].endswith("-cache-fallback"))
+            self.assertNotIn("platform", services[name])
+        self.assertNotIn("build", services["search"])
         self.assertNotIn("build", prepare.configure(model, lock, Path("/tmp/source"))["services"]["rate"])
 
-    def test_rate_patch_replaces_the_panic_and_refuses_unknown_source(self):
+    def test_cache_patch_replaces_the_panic_and_refuses_unknown_source(self):
         import tempfile
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp)
-            (source / "services/rate").mkdir(parents=True)
-            upstream = "".join(original + "...\n" for original, _ in prepare.RATE_EDITS)
-            (source / "services/rate/server.go").write_text(upstream)
-            prepare.write_rate_fix(source, "FROM go\nCOPY services/ services/\nRUN build\n")
-            patched = (source / "sandbox-patches/rate/server.go").read_text()
-            self.assertNotIn("log.Panic", patched)
-            self.assertIn("falling back to MongoDB", patched)
-            self.assertIn("markCacheDown()", patched)
-            self.assertIn("func markCacheDown", (source / "sandbox-patches/rate/cache_breaker.go").read_text())
-            self.assertIn("COPY sandbox-patches/rate/ services/rate/", (source / "Dockerfile.rate-fix").read_text())
-            (source / "services/rate/server.go").write_text("changed upstream\n")
+            for name, edits in prepare.CACHE_FIXES.items():
+                (source / "services" / name).mkdir(parents=True)
+                (source / "services" / name / "server.go").write_text("".join(o + "...\n" for o, _ in edits))
+            prepare.write_cache_fix(source, "FROM go\nCOPY services/ services/\nRUN build\n")
+            dockerfile = (source / "Dockerfile.cache-fix").read_text()
+            for name in ("rate", "profile"):
+                patched = (source / "sandbox-patches" / name / "server.go").read_text()
+                self.assertNotIn("log.Panic", patched)
+                self.assertIn("falling back to MongoDB", patched)
+                self.assertIn("markCacheDown()", patched)
+                breaker = (source / "sandbox-patches" / name / "cache_breaker.go").read_text()
+                self.assertTrue(breaker.startswith("package " + name + "\n"))
+                self.assertIn(f"COPY sandbox-patches/{name}/ services/{name}/", dockerfile)
+            (source / "services/profile/server.go").write_text("changed upstream\n")
             with self.assertRaises(SystemExit):
-                prepare.write_rate_fix(source, "COPY services/ services/\n")
+                prepare.write_cache_fix(source, "COPY services/ services/\n")
 
     def test_empty_search_is_not_a_pass(self):
         with patch.object(smoke, "request", return_value=(200, '{"type":"FeatureCollection","features":[]}')):
