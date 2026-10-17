@@ -35,7 +35,6 @@ class FixtureIntelligence:
     def __init__(self): self.started = now()
     async def plan(self, topology, state, catalog, coverage):
         return [load("proposal", ExperimentProposal).model_copy(update={"expires_at": now() + timedelta(seconds=60)})]
-        return QueryDecision(source="fixture", decision_id=new_id(), request_id=new_id(), decision="BLOCK", rule_ids=["MODULE_NOT_INTEGRATED"], policy_version="fixture-only", state_id=state.state_id, plan_estimate=None, prediction=None, reasons=["SQL policy and estimator are not connected. No candidate was executed or planned."], recommendations=["Connect Gautam's policy and Navya's estimator before live analysis."])
     async def analyze_run(self, summary, topology):
         a = load("analysis", AnalysisResult)
         refs = [r.model_copy(update={"run_id": summary.run_id, "evidence_hash": summary.evidence_hash}) for r in a.evidence_refs]
