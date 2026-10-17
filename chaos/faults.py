@@ -52,8 +52,13 @@ class NetworkDelay:
         # Ensure duration_s matches experiment duration (at least 1s)
         self.duration_s = max(1, int(exp.get("duration_s", 30)))
 
+    kind = "delay"
+
     def pumba_name(self, target):
-        return f"pumba_delay_{target}"
+        return f"pumba_{self.kind}_{target}"
+
+    def netem_args(self):
+        return ["delay", "--time", str(self.delay_ms), "--jitter", str(self.jitter_ms)]
 
     def _qdisc(self, target):
         res = subprocess.run([
@@ -82,15 +87,13 @@ class NetworkDelay:
             "netem",
             "--duration", f"{pumba_duration}s",
             "--tc-image", TC_IMAGE,
-            "delay",
-            "--time", str(self.delay_ms),
-            "--jitter", str(self.jitter_ms),
+            *self.netem_args(),
             target,
         )
         deadline = time.monotonic() + INJECT_TIMEOUT_S
         while "netem" not in self._qdisc(target):
             if time.monotonic() > deadline:
-                raise InjectError(f"netem delay never appeared on {target} within {INJECT_TIMEOUT_S}s")
+                raise InjectError(f"netem {self.kind} never appeared on {target} within {INJECT_TIMEOUT_S}s")
             time.sleep(1)
 
     def restore(self, target):
@@ -128,7 +131,27 @@ class NetworkDelay:
                 raise CleanupError(f"netem qdisc still present on {target} after removal")
 
 
+class PacketLoss(NetworkDelay):
+    """Drop a percentage of the target's outgoing packets (Pumba netem loss).
+
+    Takes loss_percent and duration_s from the experiment. Inject verification and
+    cleanup are the same as NetworkDelay.
+    """
+
+    kind = "loss"
+
+    def __init__(self, exp=None):
+        super().__init__(exp)
+        self.loss_percent = (exp or {}).get("loss_percent", 20)
+        if not 0 < self.loss_percent <= 100:
+            raise ValueError(f"loss_percent must be in (0, 100], got {self.loss_percent}")
+
+    def netem_args(self):
+        return ["loss", "--percent", str(self.loss_percent)]
+
+
 FAULTS = {
     "container_stop": ContainerStop,
     "network_delay": NetworkDelay,
+    "packet_loss": PacketLoss,
 }
