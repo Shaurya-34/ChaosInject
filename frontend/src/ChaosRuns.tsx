@@ -2,7 +2,8 @@ import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {AlertTriangle,OctagonX,Play,RotateCcw} from 'lucide-react';
 import {CartesianGrid,ComposedChart,Legend,Line,ReferenceArea,ResponsiveContainer,Scatter,Tooltip,XAxis,YAxis} from 'recharts';
 import {PrometheusCharts} from './PrometheusCharts';
-import {ChaosApiError,chaos,chaosDownload,phaseFromLog,refusalMessage,type ActiveRun,type ChaosRun,type ExperimentRow,type IndexEntry,type Proposals,type Findings} from './chaosApi';
+import {ScoreCard} from './Score';
+import {ChaosApiError,chaos,chaosDownload,phaseFromLog,refusalMessage,type ActiveRun,type ChaosRun,type ExperimentRow,type IndexEntry,type Proposals,type Findings,type Score} from './chaosApi';
 
 const pct=(x:number|null|undefined)=>x==null?'n/a':`${Math.round(x*100)}%`;
 const ms=(x:number|null|undefined)=>x==null?'n/a':`${Math.round(x)} ms`;
@@ -13,6 +14,7 @@ export function ChaosRuns({source}:{source?:string}){
   const [runs,setRuns]=useState<IndexEntry[]>([]);
   const [suggested,setSuggested]=useState<Proposals>();
   const [findings,setFindings]=useState<Findings>();
+  const [score,setScore]=useState<Score>();
   const [active,setActive]=useState<ActiveRun>();
   const [detail,setDetail]=useState<ChaosRun>();
   const [selected,setSelected]=useState<string>();
@@ -31,6 +33,7 @@ export function ChaosRuns({source}:{source?:string}){
     chaos<ExperimentRow[]>('/experiments').then(setExperiments).catch(e=>setMessage(refusalMessage(e)));
     chaos<Proposals>('/proposals').then(setSuggested).catch(()=>{});
     chaos<Findings>('/findings').then(setFindings).catch(()=>{});
+    chaos<Score>('/score').then(setScore).catch(()=>{});
     loadRuns().catch(e=>setMessage(refusalMessage(e)));
   },[loadRuns]);
 
@@ -48,6 +51,7 @@ export function ChaosRuns({source}:{source?:string}){
         if(wasRunning.current&&!a.running){
           loadRuns().catch(()=>{});
           chaos<Findings>('/findings').then(setFindings).catch(()=>{});
+          chaos<Score>('/score').then(setScore).catch(()=>{});
           if(a.run_id)openRun(a.run_id);
         }
         wasRunning.current=a.running;
@@ -76,6 +80,7 @@ export function ChaosRuns({source}:{source?:string}){
     <p className="muted">Saved results from <code>results/</code> via <code>/api/v1/chaos</code>. {source==='fixture'?'The API is in fixture mode, so any runs shown here may be synthetic examples. ':''}Starting, stopping and recovering need <code>CHAOS_EXECUTION_ENABLED=true</code> on the API.</p>
     {message&&<div role="status" className="notice">{message}<button aria-label="Dismiss message" onClick={()=>setMessage('')}>×</button></div>}
 
+    <ScoreCard score={score} onOpenRun={openRun}/>
     {leftover&&<section className="chaos-banner" role="alert"><AlertTriangle size={20}/><div><strong>A fault is still in place</strong><p>No controller is running, but a fault on <code>{active!.fault?.target??'a target'}</code> was not restored.</p></div><button className="primary" disabled={busy||execOff} title={execOff?'Execution disabled':'Restore the leftover fault'} onClick={()=>call('/recover','POST',refreshActive)}><RotateCcw size={16}/> Recover</button></section>}
 
     {running&&<section className="panel chaos-live" aria-live="polite"><div className="panel-title"><h2>Run in progress · {active!.experiment}</h2><span className="small-tag">{phaseFromLog(active!.log_tail).toUpperCase()}</span></div>

@@ -35,3 +35,18 @@ button.link{background:none;border:0;padding:0 6px 0 0;color:#0b8178;text-decora
 .prom-chart{margin:0;border:1px solid #edf1f2;border-radius:8px;padding:10px 12px}
 .prom-chart figcaption{font-size:12px;color:#587179;font-weight:600;margin-bottom:4px}
 @media(max-width:900px){.prom-grid{grid-template-columns:1fr}}
+.score-chip{display:inline-flex;align-items:center;gap:7px;border:1.5px solid #587179;border-radius:999px;background:#fff;padding:5px 12px;font:600 11px ui-monospace,monospace}
+.score-chip strong{font-size:15px}
+.score-chip-label{letter-spacing:1px;font-size:9px;opacity:.85}
+.score-chip-partial{font-size:9px;border:1px solid #bac8ff;background:#edf2ff;color:#364fc7;border-radius:4px;padding:1px 5px}
+.score-head{display:flex;gap:24px;align-items:center}
+.score-number{font-size:64px;font-weight:700;letter-spacing:-2px;line-height:1;min-width:130px}
+.score-number small{font-size:18px;color:#7d9199;font-weight:500;letter-spacing:0;margin-left:4px}
+.score-card h2{margin:0}
+.score-headline{font-size:15px;font-weight:600;margin:6px 0}
+.score-coverage{display:flex;align-items:center;gap:14px;margin:16px 0 8px;font-size:12px;color:#587179}
+.score-bar{flex:0 0 220px;height:8px;border-radius:99px;background:#e3ebed;overflow:hidden}
+.score-bar span{display:block;height:100%;background:#1864ab}
+.score-card details{margin-top:10px;font-size:12px}
+.score-card summary{cursor:pointer;color:#1864ab}
+@media(max-width:700px){.score-head{flex-direction:column;align-items:flex-start}.score-bar{flex-basis:120px}}

@@ -192,11 +192,29 @@ def _num(x: Any, unit: str = "") -> str:
     return "n/a" if x is None else f"{x:g}{unit}" if isinstance(x, (int, float)) and not isinstance(x, bool) else str(x)
 
 
+def _score_markdown(score: Mapping[str, Any]) -> list[str]:
+    lines = ["## Resilience score", "", f"**{score['headline']}**", "",
+             "Formula and weights: docs/resilience-score.md. Every number below comes from the named run.", ""]
+    for t in score["targets"] + score["unmapped_targets"]:
+        extra = "" if "weight" not in t else f", criticality weight {t['weight']:g}"
+        lines += [f"- **{t['target']}**: {t['score']:g}{extra}" + ("" if "weight" in t else " (not part of the overall score)")]
+        for p in t["pairs"]:
+            note = f" (capped from {p['uncapped_score']:g}: {p['cap_reason']})" if p["capped"] else (" (not recovered)" if p["not_recovered"] else "")
+            lines.append(f"  - {p['fault']}: {p['score']:g}{note}; scored run {p['scored_run_id']}; all runs: {', '.join(p['run_ids'])}")
+    cov = score["coverage"]
+    lines += ["", f"Coverage: {cov['tested']} of {cov['possible']} (target, fault) pairs tested."]
+    if cov["untested"]:
+        lines.append("Untested: " + ", ".join(f"{u['target']} / {u['fault']}" for u in cov["untested"]))
+    return lines + [""]
+
+
 def render_markdown(result: Mapping[str, Any]) -> str:
-    lines = ["# Chaos findings", "",
-             f"{result['runs_analyzed']} saved run(s) analyzed; {len(result['findings'])} finding(s); "
-             f"{result['runs_without_findings']} run(s) showed no weakness; {result['runs_not_evaluated']} not evaluated "
-             "(refused before injecting or incomplete).", ""]
+    lines = ["# Chaos findings", ""]
+    if result.get("score"):
+        lines += _score_markdown(result["score"])
+    lines += [f"{result['runs_analyzed']} saved run(s) analyzed; {len(result['findings'])} finding(s); "
+              f"{result['runs_without_findings']} run(s) showed no weakness; {result['runs_not_evaluated']} not evaluated "
+              "(refused before injecting or incomplete).", ""]
     if not result["findings"]:
         lines.append("No weaknesses found in the saved runs.")
     for i, f in enumerate(result["findings"], 1):
@@ -212,15 +230,34 @@ def render_markdown(result: Mapping[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _score_html(score: Mapping[str, Any], esc: Any) -> str:
+    out = [f"<section class=\"score\"><h2>Resilience score: {esc(score['headline'])}</h2>"
+           "<p>Formula and weights: docs/resilience-score.md. Every number comes from the named run.</p><ul>"]
+    for t in score["targets"] + score["unmapped_targets"]:
+        tail = "" if "weight" in t else " (not part of the overall score)"
+        out.append(f"<li><strong>{esc(t['target'])}</strong>: {t['score']:g}{tail}<ul>")
+        for p in t["pairs"]:
+            note = f" (capped from {p['uncapped_score']:g}: {esc(p['cap_reason'])})" if p["capped"] else (" (not recovered)" if p["not_recovered"] else "")
+            out.append(f"<li>{esc(p['fault'])}: {p['score']:g}{note}; scored run {esc(p['scored_run_id'])}; all runs: {esc(', '.join(p['run_ids']))}</li>")
+        out.append("</ul></li>")
+    cov = score["coverage"]
+    out.append(f"</ul><p>Coverage: {cov['tested']} of {cov['possible']} (target, fault) pairs tested.")
+    if cov["untested"]:
+        out.append(" Untested: " + esc(", ".join(f"{u['target']} / {u['fault']}" for u in cov["untested"])) + ".")
+    return "".join(out) + "</p></section>"
+
+
 def render_html(result: Mapping[str, Any]) -> str:
     esc = html.escape
     parts = ["<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Chaos findings</title>"
              "<style>body{font:15px/1.5 system-ui,sans-serif;max-width:900px;margin:32px auto;padding:0 16px;color:#182b33}"
              "table{border-collapse:collapse;width:100%;font-size:13px}td,th{border:1px solid #dfe7e9;padding:6px 8px;text-align:left}"
-             ".s1{border-left:5px solid #b14343}.s2{border-left:5px solid #c57820}.s3{border-left:5px solid #b09a17}.s4{border-left:5px solid #587179}"
+             ".s1{border-left:5px solid #5f3dc4}.s2{border-left:5px solid #4263eb}.s3{border-left:5px solid #1c7ed6}.s4{border-left:5px solid #587179}.score{background:#f3f0ff;border-left:5px solid #5f3dc4}"
              "section{padding:8px 16px;margin:20px 0;background:#f7f8f9;border-radius:6px}</style></head><body><h1>Chaos findings</h1>",
              f"<p>{result['runs_analyzed']} saved run(s) analyzed; {len(result['findings'])} finding(s); "
              f"{result['runs_without_findings']} showed no weakness; {result['runs_not_evaluated']} not evaluated.</p>"]
+    if result.get("score"):
+        parts.insert(1, _score_html(result["score"], esc))
     if not result["findings"]:
         parts.append("<p>No weaknesses found in the saved runs.</p>")
     for i, f in enumerate(result["findings"], 1):

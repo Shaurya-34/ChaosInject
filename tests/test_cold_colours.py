@@ -8,7 +8,8 @@ import re
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[1] / "frontend" / "src"
-FILES = [*SRC.glob("*.css"), *(p for p in SRC.glob("*.ts*") if p.name != "generated.ts"), SRC.parent / "index.html"]
+REPORT = Path(__file__).resolve().parents[1] / "backend" / "app" / "intelligence" / "monitoring_agent.py"  # the downloadable HTML report embeds its own CSS
+FILES = [*SRC.glob("*.css"), *(p for p in SRC.glob("*.ts*") if p.name != "generated.ts"), SRC.parent / "index.html", REPORT]
 HEX = re.compile(r"#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b")
 NAMES = re.compile(r"(?<![\w-])(red|orange|yellow|pink|crimson|tomato|gold|amber|brown|coral|salmon|maroon|firebrick)(?![\w-])", re.I)
 

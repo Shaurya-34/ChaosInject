@@ -3018,6 +3018,26 @@
         ]
       }
     },
+    "/api/v1/chaos/score": {
+      "get": {
+        "description": "Resilience score from the saved runs (docs/resilience-score.md). Read-only.",
+        "operationId": "score_api_v1_chaos_score_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Score",
+        "tags": [
+          "chaos"
+        ]
+      }
+    },
     "/api/v1/demo/injection": {
       "post": {
         "operationId": "demo_injection_api_v1_demo_injection_post",

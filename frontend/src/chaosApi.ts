@@ -44,6 +44,20 @@ export type RunMetrics={
   available:boolean;reason:string|null;
 };
 
+export type ScorePair={
+  fault:string;score:number;uncapped_score:number;capped:boolean;cap_reason:string|null;not_recovered:boolean;
+  scored_run_id:string;run_ids:string[];
+  inputs:{recovered:boolean;error_rate:number|null;baseline_p95_ms:number|null;during_p95_ms:number|null;recovery_s:number|null;recovery_timeout_s:number;stop_reason:string|null};
+};
+export type ScoreTarget={target:string;node:string|null;score:number;criticality?:number;weight?:number;pairs:ScorePair[]};
+/** GET /score (docs/resilience-score.md). score is null when no run could be scored. */
+export type Score={
+  formula_version:number;score:number|null;headline:string;complete:boolean;
+  coverage:{tested:number;possible:number;fraction:number|null;untested:{target:string;fault:string}[]};
+  weights:Record<string,number>;safety_stop_cap:number;targets:ScoreTarget[];unmapped_targets:ScoreTarget[];
+  runs_not_scored:{run_id:string;reason:string}[];
+};
+
 export class ChaosApiError extends Error{
   constructor(public status:number,public code:string,message:string){super(message);}
 }
