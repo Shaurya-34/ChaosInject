@@ -20,3 +20,6 @@ playwright-report/
 *.tsbuildinfo
 .coverage
 sandbox.identity.json
+
+# scripts/dev.py state (API pid, operator token, log)
+.dev/
