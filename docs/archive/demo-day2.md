@@ -8,7 +8,7 @@ The goal is to show the full loop:
 
 It takes about 8 minutes. Run every command from the repo root in PowerShell on an **amd64** machine. Network faults aren't observable on Docker Desktop for Mac. On macOS/Linux, use `python3` and `.venv/bin/python`.
 
-How the system fits together: [architecture.md](architecture.md).
+How the system fits together: [architecture.md](../architecture.md).
 
 ## One-time setup per machine
 
@@ -43,7 +43,7 @@ $env:CHAOS_EXECUTION_ENABLED = "true"
 ```
 
 Open http://127.0.0.1:8000, paste the token printed above, and open **Chaos runs**. Also open these tabs:
-- [architecture.md](architecture.md) on GitHub
+- [architecture.md](../architecture.md) on GitHub
 - http://localhost:9090
 - http://localhost:5000
 

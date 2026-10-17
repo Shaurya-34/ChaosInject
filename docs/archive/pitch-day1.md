@@ -27,7 +27,7 @@ python sandbox/hotel/smoke.py                # all 7 must PASS
 python -m chaos.controller --recover         # should say "nothing to recover"
 ```
 
-Open tabs: http://localhost:5000, http://localhost:16686, [README](../README.md), [dependency-map.mmd](dependency-map.mmd) on GitHub (renders the diagram), [baseline.md](baseline.md), [policy.json](../chaos/policy.json).
+Open tabs: http://localhost:5000, http://localhost:16686, [README](../../README.md), [dependency-map.mmd](../dependency-map.mmd) on GitHub (renders the diagram), [baseline.md](../baseline.md), [policy.json](../../chaos/policy.json).
 Use a large terminal font. Never pipe controller output into `head` / `Select-Object` (it kills the run mid-fault).
 
 ---
@@ -59,7 +59,7 @@ python sandbox/hotel/smoke.py
 ```
 **Expect:** 24 containers; `PASS` ×7 (login, search, recommendation, a reservation verified in MongoDB, Jaeger).
 
-**Evidence:** PR #30, [hotel-reservation-dependencies.md](hotel-reservation-dependencies.md)
+**Evidence:** PR #30, [hotel-reservation-dependencies.md](../hotel-reservation-dependencies.md)
 
 **Handoff:** "Krishna mapped how these services depend on each other."
 
@@ -91,7 +91,7 @@ python -m chaos.hooks list
 ```
 **Expect:** a table of runs saved **on this machine** (error %, p95, recovery seconds, stop reason). Results aren't in git, so a fresh machine shows nothing: then show this command again at the end of section 5.
 
-**Evidence:** #8, #9, PRs #29, #31, [SAFETY.md](SAFETY.md)
+**Evidence:** #8, #9, PRs #29, #31, [SAFETY.md](../SAFETY.md)
 
 **Handoff:** "Now let's break it."
 

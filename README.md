@@ -1,289 +1,139 @@
-# AI-Driven Chaos Engineering
+# ChaosInject
 
-An AI-assisted chaos-engineering system that injects **controlled failures** into a sandboxed cloud-native app, measures the impact, stops automatically when safety thresholds are breached, and explains weaknesses and fixes.
+[![Integration checks](https://github.com/Shaurya-34/ChaosInject/actions/workflows/ci.yml/badge.svg)](https://github.com/Shaurya-34/ChaosInject/actions/workflows/ci.yml)
 
-## Questions it answers
+Chaos engineering for a real microservice app, with guard rails. ChaosInject injects **controlled
+failures** (container stops, network delay, packet loss) into a sandboxed 24-container hotel
+booking system, measures the impact live, **stops automatically** when safety thresholds are
+breached, always restores the fault, and explains which weaknesses to fix first.
 
-- What happens when a service or dependency fails?
-- How much do latency, errors and health degrade?
-- Does the app recover, and how fast?
-- When should an experiment be stopped?
-- Which weaknesses should be fixed first?
+- **Controller:** baseline → inject → probe every second → safety stop → restore → verify recovery.
+- **Dashboard:** start and stop experiments, watch them live, inspect every run with Prometheus charts.
+- **Agents:** an injection agent proposes the next experiments from the dependency map and past runs;
+  a monitoring agent turns runs into ranked findings and an HTML report. They recommend; they never execute.
+- **Safety first:** allowlisted targets and faults only, a hard timeout, a kill switch, and a
+  restore that runs even if the run fails.
 
-## Architecture
+![Architecture](docs/img/architecture.svg)
 
-```text
-Sample app (Docker Compose)
-        │
-Dependency mapper ──► Experiment controller ──► Chaos tool (fault injection)
-                              │
-                     Metrics / health monitor
-                              │
-                     Safety controller (auto-stop, kill switch, timeout)
-                              │
-                     Results store ──► AI planner & analysis (Day 2)
-```
+## What it found
 
-| Component | Where |
-|---|---|
-| Sample app sandbox | `sandbox/hotel/` (DeathStarBench Hotel Reservation, 24 containers) |
-| Dependency map | `docs/dependency-map.json` (+ `.mmd` diagram) |
-| Experiment controller + health probes | `chaos/controller.py` |
-| Fault types | `chaos/faults.py` (container stop; network delay and packet loss via Pumba netem) |
-| Safety rules + results store | `chaos/hooks.py`, thresholds in `chaos/policy.json` |
-| AI planner / analysis | Day 2: #11, #13 |
-
-The controller enforces safety, not the AI. AI output is a recommendation, never a command.
-
-## Safety rules
-
-- Runs only in our own local sandbox; never production, shared infra or other teams' containers.
-- Allowlisted containers and experiment types only.
-- Thresholds are set before each run, with a hard timeout and a manual kill switch.
-- The app must be confirmed healthy after every experiment.
-
-## Status
-
-- **Sample app:** [DeathStarBench Hotel Reservation](https://github.com/delimitrou/DeathStarBench/tree/master/hotelReservation) (Apache-2.0). Go gRPC microservices with Consul, memcached, MongoDB, Jaeger tracing and a wrk2 load generator, all on Docker Compose.
-- **Chaos tool:** container stop via the Docker CLI; network delay and packet loss via [Pumba](https://github.com/alexei-led/pumba) netem (chosen in #4)
-- **Day 1:** sandbox running, dependency map, baseline, real faults injected, safety stop tested. Demo runbook: [docs/demo-day1.md](docs/demo-day1.md)
-- **Progress:** tracked on the [project board](https://github.com/users/Shaurya-34/projects/2)
-
-### Findings so far
+Real results on [DeathStarBench Hotel Reservation](https://github.com/delimitrou/DeathStarBench/tree/master/hotelReservation):
 
 | Experiment | Result |
 |---|---|
 | Stop `memcached-rate` | `/hotels` fails, and **the `rate` service crashes**: it calls `log.Panic` on any cache error (`services/rate/server.go:114`). It doesn't recover until restarted by hand. The same pattern exists in profile, reservation and review |
-| Stop `geo` | `/hotels` fails (a hard dependency) and recovers about 1s after `geo` returns |
-| 200 ms network delay on `rate` | `/hotels` goes from 30–50 ms to **1.3–1.9 s, then times out (>2 s)**: one slow backend amplifies 6–10× at the edge. The latency/consecutive-failure safety stop fires; it recovers instantly once the delay is removed |
-| 30% packet loss on `rate` | `/hotels` goes from 23–47 ms to **~1.5 s, with one timeout in four probes**: lost packets turn into TCP retransmission waits, so modest loss on one backend becomes a 30× slowdown at the edge. The latency safety stop fires after 4 probes; it recovers instantly once the loss is removed |
+| Stop `geo` | `/hotels` fails (a hard dependency) and recovers about 1 s after `geo` returns |
+| 200 ms network delay on `rate` | `/hotels` goes from 30–50 ms to **1.3–1.9 s, then times out (>2 s)**: one slow backend amplifies 6–10× at the edge. The safety stop fires; it recovers instantly once the delay is removed |
+| 30% packet loss on `rate` | `/hotels` goes from 23–47 ms to **~1.5 s, with timeouts**: lost packets become TCP retransmission waits, so modest loss on one backend becomes a 30× slowdown at the edge. The safety stop fires; it recovers instantly once the loss is removed |
 
-## Docs
+## Quickstart
 
-- [Architecture](docs/architecture.md): components, one run end to end, safety design (Excalidraw diagram + Mermaid)
-- [Day 2 demo runbook](docs/demo-day2.md): pre-flight, run order, expected output, fallbacks
-- [Dependency findings](docs/hotel-reservation-dependencies.md): services, call graph, config, known defects
-- [Dependency map](docs/dependency-map.json): machine-readable, used by the controller and the agents ([diagram](docs/dependency-map.mmd))
-- [Baseline](docs/baseline.md): wrk2 steady-state latency
-- [Safety controller and results store](docs/SAFETY.md)
-- [Observability](docs/observability.md): Prometheus, Pushgateway, blackbox and cAdvisor; metric names and PromQL
-- [Day 1 demo runbook](docs/demo-day1.md) and [checkpoint pitch](docs/pitch-day1.md)
-
-## Setup
-
-### Hotel Reservation sandbox (issue #3)
-
-Requires Git, Python 3.10+, Docker Engine/Desktop with a running **Linux** daemon,
-and Docker Compose v2.29.7 or later. On Windows, Docker Desktop with Linux
-containers and PowerShell works directly; a WSL2 shell is not required.
-Reserve localhost ports 5000, 8500, and 16686.
-
-The eight core application services pull the immutable
-`deathstarbench/hotel-reservation` image. It is **linux/amd64**, verified from its
-registry image configuration. YashInani07 (M2) and krrishh17 (M5) therefore need
-amd64 emulation enabled in Docker Desktop or their Colima VM; the three amd64
-teammates can run it natively. Review and attractions build from the pinned
-upstream source using the host's default build platform. MongoDB, Memcached,
-Consul, Jaeger, and the Go builder have arm64 and amd64 manifests.
-
-From the repository root, use `python` on Windows (PowerShell) and `python3`
-on Linux/macOS. The commands below use the Windows spelling; substitute
-`python3` on Linux/macOS:
-
-```powershell
-docker info
-docker compose version
-python sandbox/hotel/prepare.py
-cd sandbox/hotel/.runtime
-docker compose pull --ignore-buildable
-docker compose up -d --build
-docker compose ps --all
-python ../smoke.py
-```
-
-The first preparation clones DeathStarBench at commit
-`6ecb09706140f8730b5385c08f1386c654c3c526`. It reads the **existing upstream
-`hotelReservation/docker-compose.yml`** through Compose and derives a local
-`compose.yaml`; it does not edit tracked upstream source files or invent services.
-Generated files live under the gitignored `sandbox/hotel/.runtime/`.
-Preparation stops if an existing upstream checkout has a different revision or
-tracked modifications.
-
-For Windows checkout compatibility, preparation enables repository-local
-`core.longpaths=true` immediately after clone, then selects only
-`hotelReservation` with `git sparse-checkout set --cone --sparse-index`
-before checkout. This avoids invalid `*` filenames in `daprApps_v1/` and
-supports long paths under `vendor/` and `helm-chart/`.
-If an earlier preparation failed during checkout, move just
-`sandbox/hotel/.runtime/DeathStarBench` to a backup location and rerun preparation.
-Keep any local edits in that backup; there is no need to delete Docker volumes.
-
-After preparation, plain `docker compose up -d --build` in that directory starts
-the defined stack (only review and attractions have build definitions). Source
-builds use the pinned Go base in a generated `Dockerfile.sandbox`. All registry
-images, including MongoDB and the Go builder, use the immutable digests recorded
-in [images.lock.json](sandbox/hotel/images.lock.json). The lock records the
-human-readable version used when resolving each digest:
-
-| Image | Version resolved |
-|---|---|
-| deathstarbench/hotel-reservation | latest resolved to digest on 10 October 2026; amd64 only |
-| hashicorp/consul | 1.17.3 |
-| jaegertracing/all-in-one | 1.54.0 (legacy UDP agent supported) |
-| memcached | 1.6.24 |
-| mongo | 5.0.26 |
-| golang | 1.21.13 |
-
-Runtime configuration uses digests, **not floating latest tags**. Re-running
-preparation does not refresh the lock. Any image upgrade requires an explicit
-lock change and another smoke run. The pulled prebuilt application's source
-revision is not established by this lock; source-built review/attractions use
-the commit above.
-
-### Readiness and verification
-
-- Frontend: [http://localhost:5000](http://localhost:5000)
-- Consul: [http://localhost:8500](http://localhost:8500)
-- Jaeger UI: [http://localhost:16686](http://localhost:16686)
-
-Ports bind only to 127.0.0.1. Database/cache ports stay internal. The generator
-mounts the upstream config at `/workspace/config.json`, matching the verified
-prebuilt image working directory and source Dockerfile. TLS is disabled for this
-local sandbox; trace sampling is set to 1 for verification. Consul and MongoDB
-health checks gate dependent service startup. Memcached runs with explicit
-`-m 128 -t 2` flags. HTTP readiness is checked by the smoke script.
-
-The smoke script checks all 24 containers are running, verifies actual Docker
-restart policies, tests valid/invalid login, requires non-empty search and
-recommendation results, creates **one real benchmark reservation**, verifies its
-MongoDB record, and checks Jaeger UI plus a reported frontend tracing service.
-It saves timestamped pass/fail evidence to `results/hotel-smoke-*.json` even if a
-check fails. Reservation requests are not automatically retried.
-
-This is a small API smoke run, not the fixed-rate wrk2 baseline required by #6.
-It uses seeded benchmark dates (2015-04-09 to 2015-04-10) and may consume one
-room per successful invocation. It checks container state for review and
-attractions, not their frontend RPC routes.
-
-### Restart policy for chaos experiments
-
-**Decision: disable automatic restart on every service in this sandbox.**
-The generated model sets `restart: "no"` and removes upstream
-`deploy.restart_policy.condition: any`. Docker must not undo a killed-container
-fault before our safety controller observes it. A crashed startup stays visible;
-inspect logs and fix the cause rather than relying on a restart loop.
-
-The controller remains responsible for restoring its allowlisted target and
-verifying recovery. This setup does not add Hotel containers to the controller's
-allowlist automatically. Identify the exact container in this Compose project
-before configuring an experiment:
+**Needs:** Git, Python 3.10+, Node.js 22+, and Docker Desktop/Engine (Linux containers, Compose
+v2.29.7+). Ports 5000, 8000, 8500, 9090, 9091 and 16686 on 127.0.0.1. The app images are
+amd64; on Apple Silicon enable amd64 emulation. Use `python3` instead of `python` on Linux/macOS.
 
 ```bash
-docker compose ps --all
-docker compose ps -q frontend
-docker compose logs --tail=100 frontend search reservation
+git clone https://github.com/Shaurya-34/ChaosInject.git
+cd ChaosInject
+python scripts/dev.py setup          # venv, Python deps, dashboard build (once)
+python scripts/dev.py up --execute   # sandbox + Prometheus + API/dashboard
 ```
 
-For manual recovery of a stopped container, use `docker compose start SERVICE`
-inside this sandbox only. Starting an application again may rerun upstream
-seed insertion. Do not assume the benchmark data is unchanged after a restart.
-
-### Shutdown, data, and troubleshooting
+The first `up` clones the pinned DeathStarBench source and pulls/builds images, so it takes a few
+minutes. It ends by printing the dashboard URL (<http://127.0.0.1:8000>) and an **operator token**:
+paste the token into the dashboard, open **Chaos runs**, and start an experiment.
 
 ```bash
-# Stop and remove this project's containers/network, retaining MongoDB volumes:
-docker compose down
-# Start it again:
-docker compose up -d --build
+python scripts/dev.py status   # what's running, plus the token again
+python scripts/dev.py down     # stop everything (data volumes are kept)
 ```
 
-MongoDB data is persistent in project-specific `hotel-sandbox_*` named volumes.
-Upstream initializers are not idempotent; repeated starts may duplicate seed
-records. For a deliberately fresh benchmark, `docker compose down --volumes`
-deletes this sandbox's database contents. Use that command only when you intend
-to discard the local benchmark data; never use a global Docker prune.
+Without `--execute` the dashboard is read-only: you can browse runs and findings, but starting,
+stopping and recovering are refused.
 
-On startup failure, inspect `docker compose ps --all` and
-`docker compose logs --tail=100`. On an Apple Silicon execution-format failure,
-check amd64 emulation in the Docker VM. On frontend smoke failures, keep the
-saved evidence and logs; do not equate running containers or HTTP 200 with a
-working booking flow. See the known source/configuration caveats in
-[dependency findings](docs/hotel-reservation-dependencies.md), including the
-review/attractions discovery mismatch. This deployment does not silently patch
-the pulled application binaries.
+## How a run works
 
-### Validation status
+1. **Policy check.** The experiment's target and fault must be in [`chaos/policy.json`](chaos/policy.json),
+   and its duration within limits. Experiments can't change the policy.
+2. **Baseline.** The controller probes `/hotels` and refuses to inject if the app is already unhealthy.
+3. **Inject** the fault: `docker stop`, or [Pumba](https://github.com/alexei-led/pumba) netem for delay and loss.
+4. **Probe every second.** It stops early if the error rate, consecutive failures or latency cross a
+   threshold, or if the operator presses Stop.
+5. **Restore** the fault in a `finally` block, then **verify recovery** and save the run to `results/`.
 
-The configuration was generated from the pinned upstream Compose file and
-validated with standalone Docker Compose **v2.29.7**. Run the focused tests with
-`python` on Windows or `python3` on Linux/macOS:
+Each run also pushes live metrics to Prometheus (via the Pushgateway), next to an independent
+blackbox probe and cAdvisor container metrics. Observability never makes a safety decision.
+Details: [architecture](docs/architecture.md), [safety](docs/SAFETY.md), [observability](docs/observability.md).
 
-```powershell
-python -m unittest discover -s tests -p 'test_hotel_setup.py' -v
-```
+## Safety
 
-**Verified end to end:** all 7 smoke checks pass on Windows 11 / Intel (amd64,
-Docker Desktop) from a fresh clone ([PR #30](https://github.com/Shaurya-34/Hackathon/pull/30)).
-The stack also runs on Apple Silicon (M2, M5) with amd64 emulation.
+- Runs only against the local sandbox; every port binds to 127.0.0.1.
+- Allowlisted containers and fault types only; max duration and a hard timeout from the policy.
+- One run at a time (a run lock), and a stop file as a kill switch, used by the dashboard's Stop button.
+- If the controller is killed mid-fault, a marker file records it; the next run or **Recover** restores it.
+- The app must be confirmed healthy after every experiment.
+- The AI agents only propose. A human starts every run.
 
-## Running experiments
+## Command line
 
-The controller injects one fault into one **allowlisted** container, probes the app once a
-second, stops early when a safety rule trips, restores the fault, and verifies recovery.
+The dashboard is optional; the controller runs on its own:
 
-```powershell
-# Quick start without the hotel stack (tiny nginx target):
-docker compose -f sandbox/dummy/docker-compose.yml up -d
-python -m chaos.controller experiments/dummy_web_stop.json
-
-# Real app (stack from Setup above must be running):
+```bash
 python -m chaos.controller experiments/hotel_geo_stop.json
 python -m chaos.controller experiments/hotel_memcached_rate_stop.json
-python -m chaos.controller experiments/hotel_rate_delay.json   # amd64 only; not observable on Docker Desktop for Mac
-python -m chaos.controller experiments/hotel_rate_loss.json    # same caveat
-
-# Past runs:
-python -m chaos.hooks list
+python -m chaos.controller experiments/hotel_rate_delay.json
+python -m chaos.controller experiments/hotel_rate_loss.json
+python -m chaos.controller --recover     # restore a fault left by a killed controller
+python -m chaos.hooks list               # past runs
 python -m chaos.hooks show <run_id>
 ```
 
-- **Experiments** (`experiments/*.json`): target, fault, duration, probe URL, baseline samples.
-- **Policy** (`chaos/policy.json`): allowed targets and faults, max duration, hard timeout, and
-  safety thresholds. Experiments can't change it. See [docs/SAFETY.md](docs/SAFETY.md).
-- **Before injecting**, the controller refuses if the baseline shows the app is already unhealthy.
-- **Kill switch:** Ctrl+C. The fault is always restored.
-- **If the controller is force-killed** mid-run (terminal closed), the fault stays in place.
-  `python -m chaos.controller --recover` restores it; the next experiment also does this automatically.
-- **Results** are saved to `results/` (gitignored): config, every probe sample, stop reason and
-  recovery time, with a computed summary.
-- **Metrics:** with `docker compose -f sandbox/observability/compose.yaml up -d` running, each run
-  is also recorded in Prometheus (<http://localhost:9090>). See [docs/observability.md](docs/observability.md).
-  This is observability only; the controller makes every safety decision.
+Ctrl+C stops a run; the fault is always restored. Each experiment file in `experiments/` sets the
+target, fault, duration, probe URL and baseline samples.
 
-### Over the API
+## API
 
-The FastAPI backend serves real runs under `/api/v1/chaos` (Bearer token as for the rest of the API):
+Served under `/api/v1/chaos`, with the Bearer operator token:
 
 | Endpoint | Does |
 |---|---|
 | `GET /experiments` | experiment files in `experiments/` |
-| `POST /experiments/{id}/run` | starts `python -m chaos.controller experiments/{id}.json` as a detached subprocess (202) |
-| `GET /active` | in-flight run: running, exit code, saved `run_id`, leftover fault marker, log tail |
-| `POST /active/stop` | kill switch: writes `results/.stop_request`; the controller stops and restores |
+| `POST /experiments/{id}/run` | starts the controller as a detached process (202) |
+| `GET /active` | the in-flight run: running, exit code, saved `run_id`, leftover fault, log tail |
+| `POST /active/stop` | kill switch: the controller stops and restores |
 | `POST /recover` | restores a fault left by a killed controller |
-| `GET /runs`, `GET /runs/{run_id}` | saved results, shape in [contracts/run.schema.json](contracts/run.schema.json) |
+| `GET /runs`, `GET /runs/{id}` | saved runs, shape in [`contracts/run.schema.json`](contracts/run.schema.json) |
+| `GET /runs/{id}/metrics` | Prometheus series for the run's window |
+| `GET /proposals` | the injection agent's ranked next experiments |
+| `GET /findings`, `GET /findings/report` | the monitoring agent's findings, as JSON or an HTML report |
 
-Starting, stopping and recovering are refused unless `CHAOS_EXECUTION_ENABLED=true`.
+The full OpenAPI contract is in [`contracts/v1/openapi.json`](contracts/v1/openapi.json).
 
-Tests:
+## Development
 
-```powershell
-python -m unittest tests.test_controller tests.test_hooks tests.test_hotel_setup
+```bash
+.venv/Scripts/python -m pytest -q                       # .venv/bin/python on Linux/macOS
+.venv/Scripts/python scripts/export_contracts.py --check
+cd frontend && npm run types && npm run build && npm test
 ```
 
-The backend/frontend tests from AI-Chaos-Pilot run with `pytest` in their venv; see [docs/ai-chaos-pilot/README.md](docs/ai-chaos-pilot/README.md).
+CI runs all of these on every pull request.
 
-## License
+## Docs
 
-MIT. See [LICENSE](LICENSE). Code imported from AI-Chaos-Pilot is Apache-2.0; see [NOTICE](NOTICE) and [LICENSE-APACHE](LICENSE-APACHE).
+- [Architecture](docs/architecture.md): components, one run end to end, safety design
+- [Safety controller and results store](docs/SAFETY.md)
+- [Observability](docs/observability.md): Prometheus, Pushgateway, blackbox, cAdvisor; metric names and PromQL
+- [Hotel Reservation sandbox](docs/sandbox.md): manual setup, image pinning, restart policy, troubleshooting
+- [Dependency findings](docs/hotel-reservation-dependencies.md) and [dependency map](docs/dependency-map.json) ([diagram](docs/dependency-map.mmd))
+- [Baseline](docs/baseline.md): wrk2 steady-state latency
+- [Archive](docs/archive/): the original hackathon runbooks and pitch
 
+## Credits and license
+
+Built by [Shaurya](https://github.com/Shaurya-34) and [Gautham](https://github.com/Gauthamop), starting
+from two hackathon codebases (see the git history and [NOTICE](NOTICE)).
+
+MIT. See [LICENSE](LICENSE). Code imported from AI-Chaos-Pilot is Apache-2.0; see [NOTICE](NOTICE)
+and [LICENSE-APACHE](LICENSE-APACHE). The sandbox app is DeathStarBench (Apache-2.0).
