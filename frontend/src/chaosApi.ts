@@ -60,6 +60,14 @@ export type Score={
   runs_not_scored:{run_id:string;reason:string}[];
 };
 
+/** GET /environment: what a first run needs (null means "not probed", e.g. no hotel experiment on this machine). */
+export type Environment={
+  execution_enabled:boolean;
+  sandbox:{url:string|null;reachable:boolean|null;status:number|null};
+  prometheus:{reachable:boolean|null;status:number|null};
+  runs_saved:number;checked_at:number;
+};
+
 export class ChaosApiError extends Error{
   constructor(public status:number,public code:string,message:string){super(message);}
 }

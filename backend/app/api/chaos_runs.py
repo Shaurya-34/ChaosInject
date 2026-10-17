@@ -6,13 +6,17 @@ the API exits; it stops via results/.stop_request, which the controller checks e
 Run state comes from the controller's lock file (results/.active_run.json), not API memory, so
 it survives an API restart.
 """
+import concurrent.futures
 import json
 import os
 import re
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Query
 from fastapi.responses import Response
@@ -120,6 +124,64 @@ def _saved_run_id(lines):
     return None
 
 
+# --------------------------------------------------------------------------- #
+# Environment status for the dashboard's first-run checklist (read-only).
+# --------------------------------------------------------------------------- #
+
+ENV_PROBE_TIMEOUT_S = 1.5
+ENV_CACHE_S = 5.0  # several dashboards or polls within this many seconds share one set of probes
+_LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+_env_cache: dict = {"at": 0.0, "value": None}
+
+
+def _probe(url: str, timeout: float = ENV_PROBE_TIMEOUT_S):
+    """``(answered, status)``: any HTTP answer counts as reachable. Only http(s) URLs are fetched."""
+    if urlparse(url).scheme not in ("http", "https"):
+        return False, None
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            return True, response.status
+    except urllib.error.HTTPError as e:
+        return True, e.code
+    except (urllib.error.URLError, OSError, ValueError):
+        return False, None
+
+
+def _sandbox_probe_url():
+    """The first hotel experiment's probe URL, if it points at this machine (we never probe other hosts)."""
+    for path in sorted(EXPERIMENTS_DIR.glob("*.json")):
+        try:
+            exp = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        url = exp.get("probe_url", "")
+        if str(exp.get("target", "")).startswith("hotel-sandbox") and (urlparse(url).hostname or "") in _LOOPBACK_HOSTS:
+            return url
+    return None
+
+
+def _environment(execution_enabled: bool) -> dict:
+    now = time.time()
+    cached = _env_cache["value"]
+    if cached is not None and now - _env_cache["at"] < ENV_CACHE_S:
+        return {**cached, "execution_enabled": execution_enabled}
+    sandbox_url = _sandbox_probe_url()
+    prometheus_url = PROMETHEUS_URL.rstrip("/") + "/-/ready"
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        sandbox = pool.submit(_probe, sandbox_url) if sandbox_url else None
+        prometheus = pool.submit(_probe, prometheus_url)
+        sandbox_answer = sandbox.result() if sandbox else (None, None)
+        prom_answer = prometheus.result()
+    value = {
+        "sandbox": {"url": sandbox_url, "reachable": sandbox_answer[0], "status": sandbox_answer[1]},
+        "prometheus": {"reachable": prom_answer[0], "status": prom_answer[1]},
+        "runs_saved": len(hooks.list_results()),
+        "checked_at": now,
+    }
+    _env_cache.update(at=now, value=value)
+    return {**value, "execution_enabled": execution_enabled}
+
+
 def create_router(execution_enabled: bool) -> APIRouter:
     router = APIRouter(prefix="/api/v1/chaos", tags=["chaos"])
     active = {"proc": None, "experiment": None, "started_at": None}  # last run started by this API
@@ -133,6 +195,11 @@ def create_router(execution_enabled: bool) -> APIRouter:
     def require_execution():
         if not execution_enabled:
             raise PortError("MUTATIONS_DISABLED")
+
+    @router.get("/environment")
+    def environment():
+        """What a first run needs: execution enabled, the hotel sandbox answering, Prometheus ready, saved runs."""
+        return _environment(execution_enabled)
 
     @router.get("/experiments")
     async def experiments():
