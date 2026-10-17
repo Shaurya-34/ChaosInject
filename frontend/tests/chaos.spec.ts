@@ -281,6 +281,41 @@ test('when the model could not help, the panel states why and shows the rule-bas
   expect(await warmColours(page)).toEqual([]);
 });
 
+// ---- findings show the latest run's state ----------------------------------------------------------------
+
+const statusFindings=(over:Record<string,unknown>)=>({...findings,findings:[{...findings.findings[0],runs_total:3,runs_with_weakness:2,latest_run_id:run.run_id,...over}]});
+
+test('a finding that was fixed by a later run says so instead of reading as still broken',async({page})=>{
+  const body=statusFindings({status:'fixed_since',status_label:'Fixed since',latest_state:'No weakness',latest_severity:null,
+    explanation:'Fixed since: the latest run showed no weakness, but 2 of the 2 earlier run(s) did; at its worst, the system did not recover after the fault was removed.'});
+  await mockChaos(page,idle,undefined,undefined,undefined,body);await openChaosRuns(page);
+  const card=page.getByLabel('Findings').locator('article.finding-card');
+  await expect(card).toHaveClass(/status-fixed_since/);
+  await expect(card.locator('[data-status="fixed_since"]')).toHaveText('FIXED SINCE');
+  await expect(card).toContainText('Fixed since: the latest run showed no weakness');
+  await expect(card.locator('.latest-state')).toContainText('Latest run: No weakness · 2 of 3 runs showed a weakness');
+  expect(await warmColours(page)).toEqual([]);
+});
+
+test('a milder latest run is marked improved since',async({page})=>{
+  const body=statusFindings({status:'improved',status_label:'Improved since',latest_state:'Degraded but tolerated',latest_severity:4,
+    explanation:'Improved since: the latest run is milder (the system degraded during the fault but recovered); at its worst, the system did not recover after the fault was removed. 3 of 3 runs showed a weakness.'});
+  await mockChaos(page,idle,undefined,undefined,undefined,body);await openChaosRuns(page);
+  const card=page.getByLabel('Findings').locator('article.finding-card');
+  await expect(card.locator('[data-status="improved"]')).toHaveText('IMPROVED SINCE');
+  await expect(card.locator('.latest-state')).toContainText('Latest run: Degraded but tolerated');
+});
+
+test('an open finding has no status tag and keeps its wording',async({page})=>{
+  const body=statusFindings({status:'open',status_label:'Open',latest_state:'Not recovered / crashed',latest_severity:1,runs_total:1,runs_with_weakness:1,
+    explanation:'In 1 run(s), the system did not recover after the fault was removed.'});
+  await mockChaos(page,idle,undefined,undefined,undefined,body);await openChaosRuns(page);
+  const card=page.getByLabel('Findings').locator('article.finding-card');
+  await expect(card).toContainText('In 1 run(s), the system did not recover');
+  await expect(card.locator('[data-status]')).toHaveCount(0);
+  await expect(card.locator('.latest-state')).toHaveCount(0);
+});
+
 // ---- G3: empty and first-run states --------------------------------------------------------------------------
 
 const env=(over:Record<string,unknown>={})=>({execution_enabled:true,sandbox:{url:'http://127.0.0.1:5000/hotels',reachable:true,status:200},

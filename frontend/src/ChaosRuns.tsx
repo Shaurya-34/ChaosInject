@@ -189,9 +189,10 @@ function FindingsPanel({data,onOpen,onError}:{data:Findings;onOpen:(id:string)=>
     <p className="muted">Ranked by severity from {data.runs_analyzed} saved run(s). Every finding cites its runs; numbers come from the run records. {data.runs_without_findings} run(s) showed no weakness, {data.runs_not_evaluated} not evaluated.</p>
     {data.limitations.map(l=><p key={l} className="muted">{l}</p>)}
     {data.findings.length===0&&<p className="empty">{data.runs_analyzed===0?'No runs yet, so there are no findings. They appear after your first run.':'No weaknesses found in the saved runs.'}</p>}
-    {data.findings.map(f=><article className={'finding-card sev'+f.severity} key={f.id}>
-      <div><span className={'small-tag sev'+f.severity}>{f.severity_label.toUpperCase()}</span> <strong>{f.title}</strong></div>
+    {data.findings.map(f=><article className={'finding-card sev'+f.severity+(f.status&&f.status!=='open'?' status-'+f.status:'')} key={f.id}>
+      <div><span className={'small-tag sev'+f.severity}>{f.severity_label.toUpperCase()}</span> {f.status&&f.status!=='open'&&<span className={'small-tag status-'+f.status} data-status={f.status}>{(f.status_label??f.status).toUpperCase()}</span>} <strong>{f.title}</strong></div>
       <p>{f.explanation}</p>
+      {f.runs_total!==undefined&&f.runs_total>1&&<p className="muted latest-state">Latest run: {f.latest_state??'n/a'} · {f.runs_with_weakness} of {f.runs_total} runs showed a weakness</p>}
       <p className="muted explain-source" data-source={f.explanation_source}>{explainedBy(f.explanation_source,f.explanation_model,data.llm?.location)}</p>
       <p className="muted">Affects: {f.affected_endpoints.join(', ')||'no working endpoint'} · Runs: {f.run_ids.map((id,i)=><React.Fragment key={id}>{i>0&&', '}<button className="link" onClick={()=>onOpen(id)}>{id}</button></React.Fragment>)}</p>
       <p><strong>Suggested fix.</strong> {f.suggested_fix}</p>

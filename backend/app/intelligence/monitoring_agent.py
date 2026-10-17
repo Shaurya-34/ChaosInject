@@ -9,8 +9,12 @@ dependency map. Every number in a finding is copied from a record and every find
   3. latency amplification          a slow dependency made the user-facing probe much slower
   4. degraded but tolerated         some errors or slowdown, the safety stop did not fire, it recovered
 
-Runs of the same (target, fault) are merged into one finding that cites all of them. The agent only
-reports; it never runs anything. A language model, if configured, may reword the explanation
+Runs of the same (target, fault) are merged into one finding that cites all of them, oldest first. The
+severity is the worst any of them showed, but the finding also says what the **latest** run showed and carries a
+``status``: ``open`` (the latest run is as bad as the worst), ``improved`` (the latest run is milder) or
+``fixed_since`` (the latest run showed no weakness), so a finding after a fix never reads as "not recovered"
+when the newest run recovered. The score uses the same latest-run rule. The agent only reports; it never runs
+anything. A language model, if configured, may reword the explanation
 (``enrich_explanations``); numbers must come from the evidence and any failure keeps the
 deterministic text.
 """
@@ -35,6 +39,7 @@ SEVERITY_LABELS = {
     4: "Degraded but tolerated",
 }
 NON_CRITICAL_OUTAGE_LABEL = "Full outage of a non-critical path"
+STATUS_LABELS = {"open": "Open", "improved": "Improved since", "fixed_since": "Fixed since"}
 CORE_PATH = "/hotels"
 
 
@@ -118,11 +123,12 @@ def _classify(run: Mapping[str, Any], critical_path: bool, cfg: MonitorConfig) -
     return None
 
 
-def _evidence(runs: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+def _evidence(runs: Sequence[Mapping[str, Any]], severities: Mapping[str, int | None] | None = None) -> list[dict[str, Any]]:
     out = []
     for r in runs:
         out.append({
             "run_id": r["run_id"],
+            "weakness_severity": (severities or {}).get(r["run_id"]),
             "stop_reason": r.get("stop_reason"),
             "recovered": r.get("recovered"),
             "recovery_s": r.get("recovery_s"),
@@ -135,6 +141,22 @@ def _evidence(runs: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+def _chronological(runs: Sequence[tuple[Mapping[str, Any], Any]]) -> list[tuple[Mapping[str, Any], Any]]:
+    return sorted(runs, key=lambda item: (item[0].get("saved_at") or 0, item[0].get("run_id", "")))
+
+
+def _history_text(status: str, n_total: int, n_weak: int, worst_reason: str, latest_reason: str | None) -> str:
+    if status == "open" and n_weak == n_total:
+        return f"In {n_total} run(s), {worst_reason}."
+    if status == "fixed_since":
+        return (f"Fixed since: the latest run showed no weakness, but {n_weak} of the {n_total - 1} earlier run(s) did; "
+                f"at its worst, {worst_reason}.")
+    if status == "improved":
+        return (f"Improved since: the latest run is milder ({latest_reason}); at its worst, {worst_reason}. "
+                f"{n_weak} of {n_total} runs showed a weakness.")
+    return f"Latest run: {latest_reason}. {n_weak} of {n_total} runs showed a weakness; at its worst, {worst_reason}."
+
+
 def analyze(
     runs: Sequence[Mapping[str, Any]],
     dep_map: Mapping[str, Any],
@@ -143,45 +165,56 @@ def analyze(
     """Return ``{"findings": [...ranked...], "runs_analyzed": n, "runs_without_findings": n, "runs_not_evaluated": n}``."""
 
     cfg = config or MonitorConfig()
-    groups: dict[tuple[str, str], list[tuple[int, str, str, Mapping[str, Any]]]] = {}
+    pairs: dict[tuple[str, str], list[tuple[Mapping[str, Any], Any]]] = {}
     clean = skipped = 0
     for run in runs:
         exp = run.get("experiment") or {}
         target, fault = exp.get("target"), exp.get("fault")
-        if not target or not fault:
+        if not target or not fault or run.get("refused"):
             skipped += 1
             continue
         node = node_for_target(target) or target
-        endpoints = affected_endpoints(dep_map, node)
-        verdict = _classify(run, CORE_PATH in endpoints, cfg)
-        if run.get("refused"):
-            skipped += 1
-        elif verdict is None:
+        verdict = _classify(run, CORE_PATH in affected_endpoints(dep_map, node), cfg)
+        if verdict is None:
             clean += 1
-        else:
-            groups.setdefault((target, fault), []).append((verdict[0], verdict[1], verdict[2], run))
+        pairs.setdefault((target, fault), []).append((run, verdict))
     findings = []
-    for (target, fault), items in groups.items():
-        worst = min(sev for sev, _, _, _ in items)
-        worst_reason, worst_label = next((reason, label) for sev, reason, label, _ in items if sev == worst)
-        used = [r for _, _, _, r in items]
+    for (target, fault), items in pairs.items():
+        history = _chronological(items)
+        weak = [(v[0], v[1], v[2], r) for r, v in history if v is not None]
+        if not weak:
+            continue  # every run of this pair was clean
+        worst = min(sev for sev, _, _, _ in weak)
+        worst_reason, worst_label = next((reason, label) for sev, reason, label, _ in reversed(weak) if sev == worst)
+        latest_run, latest_verdict = history[-1]
+        latest_sev = latest_verdict[0] if latest_verdict else None
+        status = "fixed_since" if latest_verdict is None else ("improved" if latest_sev > worst else "open")
         node = node_for_target(target) or target
         endpoints = affected_endpoints(dep_map, node)
+        severities = {r["run_id"]: (v[0] if v else None) for r, v in history}
         findings.append({
             "id": f"{target}:{fault}",
             "severity": worst,
             "severity_label": worst_label,
             "title": f"{fault} on {target}: {worst_label.lower()}",
+            "status": status,
+            "status_label": STATUS_LABELS[status],
+            "latest_run_id": latest_run["run_id"],
+            "latest_severity": latest_sev,
+            "latest_state": latest_verdict[2] if latest_verdict else "No weakness",
+            "runs_total": len(history),
+            "runs_with_weakness": len(weak),
             "target": target,
             "fault": fault,
             "affected_endpoints": endpoints,
-            "explanation": f"In {len(used)} run(s), {worst_reason}.",
-            "evidence": _evidence(used),
-            "run_ids": [r["run_id"] for r in used],
+            "explanation": _history_text(status, len(history), len(weak), worst_reason, latest_verdict[1] if latest_verdict else None),
+            "evidence": _evidence([r for r, _ in history], severities),
+            "run_ids": [r["run_id"] for r, _ in history],
             "suggested_fix": suggest_fix(target, fault, dep_map),
             "explanation_source": "deterministic",
         })
-    findings.sort(key=lambda f: (f["severity"], -len(f["run_ids"]), f["target"], f["fault"]))
+    # Findings that are still affected come first; ones fixed since go last. Severity logic is unchanged.
+    findings.sort(key=lambda f: (f["status"] == "fixed_since", f["severity"], -f["runs_with_weakness"], f["target"], f["fault"]))
     return {"findings": findings, "runs_analyzed": len(runs), "runs_without_findings": clean, "runs_not_evaluated": skipped}
 
 
@@ -225,7 +258,9 @@ def render_markdown(result: Mapping[str, Any]) -> str:
     if not result["findings"]:
         lines.append("No weaknesses found in the saved runs.")
     for i, f in enumerate(result["findings"], 1):
-        lines += [f"## {i}. [{f['severity_label']}] {f['title']}", "", f["explanation"], "", f"_{explanation_label(f)}_", "",
+        lines += [f"## {i}. [{f['severity_label']}] {f['title']}", "", f"**Status: {f['status_label']}**"
+                  + ("" if f["status"] == "open" else f" (latest run: {f['latest_state'].lower()})"), "", f["explanation"], "",
+                  f"_{explanation_label(f)}_", "",
                   f"- Affected endpoints: {', '.join(f['affected_endpoints']) or 'none'}",
                   f"- Runs: {', '.join(f['run_ids'])}", "", "| run_id | stop reason | recovered | recovery | baseline p95 | fault p95 | error rate |",
                   "|---|---|---|---|---|---|---|"]
@@ -268,7 +303,8 @@ def render_html(result: Mapping[str, Any]) -> str:
     if not result["findings"]:
         parts.append("<p>No weaknesses found in the saved runs.</p>")
     for i, f in enumerate(result["findings"], 1):
-        parts.append(f"<section class=\"s{f['severity']}\"><h2>{i}. {esc(f['severity_label'])}: {esc(f['title'])}</h2><p>{esc(f['explanation'])}</p><p><em>{esc(explanation_label(f))}</em></p>"
+        parts.append(f"<section class=\"s{f['severity']}\"><h2>{i}. {esc(f['severity_label'])}: {esc(f['title'])}</h2><p><strong>Status: {esc(f['status_label'])}</strong>"
+                     + ("" if f["status"] == "open" else f" (latest run: {esc(f['latest_state'].lower())})") + f"</p><p>{esc(f['explanation'])}</p><p><em>{esc(explanation_label(f))}</em></p>"
                      f"<p>Affected endpoints: {esc(', '.join(f['affected_endpoints']) or 'none')}</p><table><tr><th>run_id</th><th>stop reason</th>"
                      "<th>recovered</th><th>recovery</th><th>baseline p95</th><th>fault p95</th><th>error rate</th></tr>")
         for e in f["evidence"]:
