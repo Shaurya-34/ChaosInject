@@ -5,7 +5,6 @@ import pytest
 
 from app.api.evidence import checked_evidence
 from app.intelligence import fakes
-from app.intelligence.learner import StreamingLearner
 from app.intelligence.reasoning import LiveProvider, MockProvider, ReasoningBudget, provider_from_env
 from app.intelligence.service import IntelligenceService
 
@@ -16,7 +15,7 @@ BROWSE_TITLE = f"browse has no fallback when {TARGET} fails"
 
 
 def service(provider, **kw):
-    return IntelligenceService(provider=provider, budget=ReasoningBudget(**kw), learner=StreamingLearner(source="fixture"))
+    return IntelligenceService(provider=provider, budget=ReasoningBudget(**kw))
 
 
 def analyze(svc, summary=None, topology=None):

@@ -46,6 +46,6 @@ def configured_ports(settings):
     module, function = factory.split(":", 1)
     ports = getattr(importlib.import_module(module), function)(settings)
     if not isinstance(ports, Ports) or not ports.runtime_safety_ready: raise ValueError("Live runtime must attest independent watchdog/reconciliation readiness")
-    for obj, names in [(ports.platform, ["get_topology", "get_target"]), (ports.telemetry, ["get_state", "begin_phase", "close_phase", "finalize_run"]), (ports.intelligence, ["plan", "analyze_run", "observe", "get_learning_status"]), (ports.runtime, ["catalog", "validate", "approve", "start", "status", "events", "stop", "emergency_stop", "reconcile", "reset"])]:
+    for obj, names in [(ports.platform, ["get_topology", "get_target"]), (ports.telemetry, ["get_state", "begin_phase", "close_phase", "finalize_run"]), (ports.intelligence, ["plan", "analyze_run"]), (ports.runtime, ["catalog", "validate", "approve", "start", "status", "events", "stop", "emergency_stop", "reconcile", "reset"])]:
         if not all(callable(getattr(obj, method, None)) for method in names): raise ValueError("Incomplete live port implementation")
     return ports

@@ -76,19 +76,6 @@ class RecoveryConfig:
 
 
 @dataclass(frozen=True)
-class LearningChannelConfig:
-    """Bounded, RAM-only channel feeding Gautam's streaming learner."""
-
-    queue_capacity: int = 2_000
-    # Arrival records waiting to be joined to an outcome.
-    pending_capacity: int = 1_000
-    pending_ttl_seconds: float = 300.0
-    # Never changes. Writing observations to disk would create exactly the
-    # retained training dataset the design forbids.
-    persistence_enabled: bool = False
-
-
-@dataclass(frozen=True)
 class WorkloadConfig:
     """Synthetic workload shape.
 
@@ -122,7 +109,6 @@ class TelemetryConfig:
     sampling: SamplingConfig = field(default_factory=SamplingConfig)
     state: StateConfig = field(default_factory=StateConfig)
     recovery: RecoveryConfig = field(default_factory=RecoveryConfig)
-    learning: LearningChannelConfig = field(default_factory=LearningChannelConfig)
     workload: WorkloadConfig = field(default_factory=WorkloadConfig)
 
 

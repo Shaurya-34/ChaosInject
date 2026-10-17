@@ -6,7 +6,6 @@ from fastapi.testclient import TestClient
 from app.adapters.fixtures import fixture_ports
 from app.api.config import Settings
 from app.intelligence import IntelligenceService
-from app.intelligence.learner import StreamingLearner
 from app.intelligence.rollback import RollbackDisabled, propose_rollback
 from app.main import create_app
 
@@ -16,7 +15,7 @@ TOKEN = "t" * 40
 @pytest.fixture
 def client():
     ports = fixture_ports(True, delay=0.05)
-    ports.intelligence = IntelligenceService(learner=StreamingLearner(source="fixture"))
+    ports.intelligence = IntelligenceService()
     with TestClient(create_app(Settings(operator_token=TOKEN, fake_runtime_enabled=True), ports), headers={"Authorization": "Bearer " + TOKEN}) as c:
         yield c
 
@@ -35,11 +34,6 @@ def test_analysis_route_passes_evidence_check(client):
     body = r.json()
     assert body["mode"] == "deterministic_fallback" and body["source"] == "fixture"
     assert body["hypotheses"] and all(h["evidence_refs"] for h in body["hypotheses"])
-
-
-def test_learning_status_route(client):
-    r = client.get("/api/v1/learning/status")
-    assert r.status_code == 200 and r.json()["retained_raw_examples"] == 0 and r.json()["persistence"] == "disabled"
 
 
 def test_rollback_proposals_are_disabled_on_day_one(monkeypatch):

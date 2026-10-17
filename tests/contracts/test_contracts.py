@@ -7,7 +7,7 @@ from app.adapters.fixtures import load
 from app.api.evidence import checked_evidence, summary_hash
 from app.api.errors import PortError
 
-@pytest.mark.parametrize('name,cls', [('topology',TopologySnapshot),('state',SystemStateSnapshot),('missing-state',SystemStateSnapshot),('stale-state',SystemStateSnapshot),('target',VerifiedTarget),('proposal',ExperimentProposal),('summary',RunSummary),('failed-cleanup',RunSummary),('analysis',AnalysisResult),('model-outage',AnalysisResult),('learning',LearningStatus),('rejected-proposal',ValidationResult)])
+@pytest.mark.parametrize('name,cls', [('topology',TopologySnapshot),('state',SystemStateSnapshot),('missing-state',SystemStateSnapshot),('stale-state',SystemStateSnapshot),('target',VerifiedTarget),('proposal',ExperimentProposal),('summary',RunSummary),('failed-cleanup',RunSummary),('analysis',AnalysisResult),('model-outage',AnalysisResult),('rejected-proposal',ValidationResult)])
 def test_fixture_contracts(name,cls):
     obj=load(name,cls)
     assert obj.schema_version=='1.0'

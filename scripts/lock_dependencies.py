@@ -3,7 +3,7 @@ import importlib.metadata as md
 from pathlib import Path
 from packaging.requirements import Requirement
 root=Path(__file__).resolve().parents[1]
-pending=['fastapi','starlette','pydantic','uvicorn','httpx','pytest','pytest-asyncio','river','jsonschema']
+pending=['fastapi','starlette','pydantic','uvicorn','httpx','pytest','pytest-asyncio','jsonschema']
 seen={}
 while pending:
     name=pending.pop()

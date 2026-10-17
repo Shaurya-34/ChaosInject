@@ -9,7 +9,6 @@ class ReplayBundle(Contract):
     recorded_from: Literal["live"]
     topology: TopologySnapshot
     state: SystemStateSnapshot
-    learning: LearningStatus
     summary: RunSummary
     analysis: AnalysisResult
     events: list[RunEvent] = Field(max_length=128)
@@ -19,7 +18,6 @@ class ReplayAdapter:
         self.b = bundle
     async def get_topology(self, sandbox_id): return self.b.topology
     async def get_state(self, sandbox_id): return self.b.state
-    async def get_learning_status(self): return self.b.learning
     async def analyze_run(self, summary, topology): return self.b.analysis
     async def catalog(self): return Catalog(source="replay", entries=[])
     async def plan(self, topology, state, catalog, coverage): return []
@@ -34,7 +32,7 @@ class ReplayAdapter:
 def replay_ports(path: Path):
     if path.stat().st_size > 1048576: raise ValueError("Replay bundle exceeds 1 MiB")
     b = ReplayBundle.model_validate_json(path.read_text(encoding="utf-8"))
-    objects = [b.topology, b.state, b.learning, b.summary, b.analysis, *b.events]
+    objects = [b.topology, b.state, b.summary, b.analysis, *b.events]
     if any(x.source != "replay" for x in objects): raise ValueError("Replay objects must be explicitly labelled replay")
     if not b.summary.phase_summaries: raise ValueError("Replay needs actual phase windows")
     checked_evidence(b.summary, b.analysis)

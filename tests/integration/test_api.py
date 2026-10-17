@@ -87,14 +87,12 @@ def test_provenance_mismatch_refused(client):
 
 def test_dependency_exception_does_not_echo_private_data(client,caplog):
     async def broken(*args): raise RuntimeError('PRIVATE_INPUT_MUST_NOT_ESCAPE')
-    client.app.state.ports.intelligence.get_learning_status=broken
-    r=client.get('/api/v1/learning/status')
+    client.app.state.ports.intelligence.analyze_run=broken
+    r=client.get('/api/v1/runs/fixture-run/analysis')
     assert r.status_code==503 and 'PRIVATE_INPUT' not in r.text
     assert 'PRIVATE_INPUT' not in caplog.text
 
-def test_restart_learning_and_actions_disabled(client):
-    s=client.get('/api/v1/learning/status').json()
-    assert s['retained_raw_examples']==0 and s['updates']==0 and s['persistence']=='disabled'
+def test_actions_disabled(client):
     assert client.post('/api/v1/actions/propose',json={}).json()['code']=='ACTIONS_DISABLED'
 
 def test_health_in_fixture_and_demo_modes(client):

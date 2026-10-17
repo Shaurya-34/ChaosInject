@@ -117,8 +117,6 @@ def create_app(settings: Settings | None = None, ports: Ports | None = None):
         r = await ports.runtime.reconcile(settings.sandbox_id)
         if r.cleanup_status not in ("verified", "not_applicable") or r.recovery_status != "verified" or r.unresolved_run_ids: raise PortError("CONFLICT")
         return provenance(await ports.runtime.reset(settings.sandbox_id, who))
-    @app.get("/api/v1/learning/status", response_model=LearningStatus)
-    async def learning_status(): return provenance(await ports.intelligence.get_learning_status())
     @app.get("/api/v1/runs/{run_id}/analysis", response_model=AnalysisResult)
     async def analysis(run_id: str):
         s = await run(run_id)

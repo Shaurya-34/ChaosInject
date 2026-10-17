@@ -28,7 +28,7 @@ def test_replay_is_read_only_and_rejects_hash_tamper(tmp_path):
     s=s.model_copy(update={'evidence_hash':summary_hash(s)})
     a=load('analysis',AnalysisResult).model_copy(deep=True,update={'source':'replay'})
     for ref in a.evidence_refs+[r for f in a.hypotheses+a.recommendations for r in f.evidence_refs]: ref.evidence_hash=s.evidence_hash
-    b={'schema_version':'1.0','recorded_from':'live','summary':s.model_dump(mode='json'),'analysis':a.model_dump(mode='json'),'topology':load('topology',TopologySnapshot).model_copy(update={'source':'replay'}).model_dump(mode='json'),'state':load('state',SystemStateSnapshot).model_copy(update={'source':'replay'}).model_dump(mode='json'),'learning':load('learning',LearningStatus).model_copy(update={'source':'replay'}).model_dump(mode='json'),'events':[]}
+    b={'schema_version':'1.0','recorded_from':'live','summary':s.model_dump(mode='json'),'analysis':a.model_dump(mode='json'),'topology':load('topology',TopologySnapshot).model_copy(update={'source':'replay'}).model_dump(mode='json'),'state':load('state',SystemStateSnapshot).model_copy(update={'source':'replay'}).model_dump(mode='json'),'events':[]}
     path=tmp_path/'replay.json';path.write_text(json.dumps(b),encoding='utf-8')
     ports=replay_ports(path)
     with TestClient(create_app(Settings(mode='replay',operator_token=TOKEN),ports),headers={'Authorization':'Bearer '+TOKEN}) as c:

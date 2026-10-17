@@ -18,7 +18,6 @@ import uuid
 from pathlib import Path
 
 from . import fakes
-from .learner import LearnerConfig, StreamingLearner
 from .reasoning import MockProvider
 from .service import IntelligenceService
 
@@ -30,40 +29,8 @@ def _write(out: Path, name: str, obj) -> None:
     out.joinpath(name).write_text(json.dumps({**HEADER, "data": data}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _synthetic_stream(learner: StreamingLearner, n: int, rng: random.Random, scale: float = 1.0) -> None:
-    from datetime import datetime, timezone
-
-    from app.contracts import LearningObservation
-
-    for _ in range(n):
-        rows = rng.uniform(0, 10)
-        rid = f"req_{uuid.uuid4().hex}"
-        learner.register_arrival(
-            rid, {"log_est_rows": rows, "log_est_bytes": rows + 4, "log_planner_cost": rows * 0.8, "plan_seq_scan": float(rows > 5), "ready_fraction": 1.0}, learner.source
-        )
-        ms = scale * math.expm1(0.6 * rows + 1.0) * rng.uniform(0.9, 1.1)
-        learner.observe(
-            LearningObservation(
-                source=learner.source, request_id=rid, captured_at=datetime.now(timezone.utc), state_id="synthetic",
-                kind="completed", features=None, duration_ms=ms, output_rows=None, active_fault_id=None,
-            )
-        )
-
-
 async def _main(out: Path) -> None:
-    svc = IntelligenceService(learner=StreamingLearner(source="fixture"))
-
-    _write(out, "learning_status_cold_start.json", await svc.get_learning_status())
-
-    warm = StreamingLearner(source="fixture")
-    _synthetic_stream(warm, 300, random.Random(5))
-    _write(out, "learning_status_after_300_synthetic.json", warm.status())
-
-    drift = StreamingLearner(LearnerConfig(drift_action="flag"), source="fixture")
-    rng = random.Random(11)
-    _synthetic_stream(drift, 200, rng)
-    _synthetic_stream(drift, 8, rng, scale=200.0)  # flagged at the 8th shifted sample; the model re-adapts by ~10
-    _write(out, "learning_status_drift.json", drift.status())
+    svc = IntelligenceService()
 
     topo = fakes.topology()
     _write(out, "experiment_proposals.json", [p.model_dump(mode="json") for p in await svc.plan(topo, fakes.state(), fakes.catalog(), {})])

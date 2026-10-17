@@ -15,8 +15,6 @@ What this package guarantees to the rest of the system:
   aggregate.
 * **Recovery means business recovery.** Restored replicas alone do not qualify;
   critical transactions must succeed for a sustained interval.
-* **The learning channel retains nothing.** Bounded in RAM, no persistence, with
-  drop counters reported.
 * **Telemetry observes and never mutates.** No function in this package changes
   cluster or database state.
 
@@ -28,8 +26,6 @@ from ._contracts import (  # noqa: F401
     CleanupStatus,
     DataQuality,
     EvidenceRef,
-    LearningKind,
-    LearningObservation,
     LoadProfile,
     OperationAggregate,
     Outcome,
@@ -45,7 +41,6 @@ from ._contracts import (  # noqa: F401
     TimelineMarker,
 )
 from .config import DEFAULT_CONFIG, SCHEMA_VERSION, SCORING_VERSION, TelemetryConfig
-from .learning import LearningChannel
 from .port import LiveTelemetryPort, TelemetryPort
 from .recovery import FrozenBaseline, RecoveryDetector, RecoveryOutcome
 from .scoring import ResilienceScorer, SafetyChecks, ScoringInputs, aggregate
@@ -62,9 +57,6 @@ __all__ = [
     "DataQuality",
     "EvidenceRef",
     "FrozenBaseline",
-    "LearningChannel",
-    "LearningKind",
-    "LearningObservation",
     "LiveTelemetryPort",
     "LoadProfile",
     "OperationAggregate",

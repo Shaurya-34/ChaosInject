@@ -1,5 +1,4 @@
-"""Gautam's intelligence workstream: streaming learner,
-experiment planner, evidence-grounded diagnosis and (disabled) rollback proposals.
+"""Gautam's intelligence workstream: experiment planner, evidence-grounded diagnosis and (disabled) rollback proposals.
 
 ``IntelligenceService`` implements ``app.api.ports.IntelligencePort``.
 """

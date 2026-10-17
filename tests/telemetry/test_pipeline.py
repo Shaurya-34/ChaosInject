@@ -1,4 +1,4 @@
-"""Probe, phases, state, recovery, learning, summary, redaction."""
+"""Probe, phases, state, recovery, summary, redaction."""
 
 from __future__ import annotations
 
@@ -8,8 +8,6 @@ from datetime import timedelta
 
 from backend.app.telemetry._contracts import (
     CleanupStatus,
-    LearningKind,
-    LearningObservation,
     Outcome,
     Phase,
     RecoveryStatus,
@@ -18,7 +16,6 @@ from backend.app.telemetry._contracts import (
 from backend.app.telemetry.clock import mono, now_utc
 from backend.app.telemetry.cluster import StaticClusterAdapter, all_workloads_ready
 from backend.app.telemetry.config import (
-    LearningChannelConfig,
     RecoveryConfig,
     SamplingConfig,
     WorkloadConfig,
@@ -31,7 +28,6 @@ from backend.app.telemetry.fakes import (
     make_load_profile,
     make_phase_summary,
 )
-from backend.app.telemetry.learning import LearningChannel
 from backend.app.telemetry.phases import MonoAnchor, PhaseRecorder
 from backend.app.telemetry.probe import ProbeRunner
 from backend.app.telemetry.recovery import FrozenBaseline, RecoveryDetector
@@ -392,103 +388,6 @@ class RecoveryTests(unittest.TestCase):
     def test_baseline_is_frozen(self):
         with self.assertRaises(Exception):
             BASE.success_rate = 0.5  # type: ignore[misc]
-
-
-# ---------------------------------------------------------------- learning
-
-
-class LearningChannelTests(unittest.TestCase):
-    def test_persistence_cannot_be_enabled(self):
-        with self.assertRaises(ValueError):
-            LearningChannel(LearningChannelConfig(persistence_enabled=True))
-
-    def test_outcome_joins_arrival_and_carries_no_features(self):
-        ch = LearningChannel(source=Source.FIXTURE)
-        ch.record_arrival("req_1", {"tables": 2.0}, None)
-        out = ch.record_completed("req_1", duration_ms=12.0, rows_returned=3, bytes_returned=90)
-        self.assertIsNone(out.features)
-        self.assertEqual(ch.stats.joined_outcomes, 1)
-        self.assertEqual(ch.pending_count, 0)
-
-    def test_censored_requires_a_reason_and_is_not_completed(self):
-        ch = LearningChannel(source=Source.FIXTURE)
-        ch.record_arrival("req_2", {"x": 1.0}, None)
-        out = ch.record_censored("req_2", observed_ms=4000.0, reason="row_cap_reached")
-        self.assertIs(out.kind, LearningKind.CENSORED)
-        with self.assertRaises(ValueError):
-            LearningObservation(
-                request_id="r", source=Source.FIXTURE, captured_at=now_utc(),
-                kind=LearningKind.CENSORED,
-            )
-
-    def test_failed_or_blocked_has_no_duration(self):
-        ch = LearningChannel(source=Source.FIXTURE)
-        out = ch.record_failed("req_3")
-        self.assertIsNone(out.duration_ms)
-        with self.assertRaises(ValueError):
-            LearningObservation(
-                request_id="r", source=Source.FIXTURE, captured_at=now_utc(),
-                kind=LearningKind.FAILED, duration_ms=5.0,
-            )
-
-    def test_arrival_without_features_is_rejected(self):
-        with self.assertRaises(ValueError):
-            LearningObservation(
-                request_id="r", source=Source.FIXTURE, captured_at=now_utc(),
-                kind=LearningKind.ARRIVAL,
-            )
-
-    def test_orphan_outcome_is_counted_not_invented(self):
-        ch = LearningChannel(source=Source.FIXTURE)
-        out = ch.record_completed("never_seen", duration_ms=1.0, rows_returned=0, bytes_returned=0)
-        self.assertEqual(ch.stats.orphan_outcomes, 1)
-        self.assertEqual(out.baseline_context, "unknown")
-
-    def test_chaos_window_observations_are_labelled(self):
-        ch = LearningChannel(source=Source.FIXTURE)
-        rec = recorder()
-        snap = run(
-            StateBuilder("s", rec.ring, StaticClusterAdapter(healthy_readout()), source=Source.FIXTURE).capture()
-        )
-        faulted = snap.model_copy(update={"active_fault_id": "fault_9"})
-        arrival = ch.record_arrival("req_4", {"x": 1.0}, faulted)
-        self.assertEqual(arrival.baseline_context, "injected_fault")
-        calm = ch.record_arrival("req_5", {"x": 1.0}, snap)
-        self.assertEqual(calm.baseline_context, "baseline")
-
-    def test_memory_bounded_over_a_long_stream_with_drop_counters(self):
-        cfg = LearningChannelConfig(queue_capacity=100, pending_capacity=50)
-        ch = LearningChannel(cfg, source=Source.FIXTURE)
-        for i in range(5000):
-            ch.record_arrival(f"req_{i}", {"x": float(i)}, None)
-        self.assertLessEqual(len(ch), 100)
-        self.assertLessEqual(ch.pending_count, 50)
-        self.assertGreater(ch.stats.dropped_queue_full, 0)
-        self.assertGreater(ch.stats.dropped_pending_full, 0)
-        status = ch.status()
-        self.assertEqual(status["persistence"], "disabled")
-        self.assertEqual(status["retained_raw_examples"], 0)
-
-    def test_drain_retains_nothing(self):
-        ch = LearningChannel(source=Source.FIXTURE)
-        ch.record_arrival("req_1", {"x": 1.0}, None)
-        self.assertEqual(len(ch.drain()), 1)
-        self.assertEqual(len(ch), 0)
-
-    def test_no_files_are_written(self):
-        import os, tempfile
-
-        with tempfile.TemporaryDirectory() as d:
-            old = os.getcwd()
-            os.chdir(d)
-            try:
-                ch = LearningChannel(source=Source.FIXTURE)
-                for i in range(500):
-                    ch.record_arrival(f"r{i}", {"x": 1.0}, None)
-                    ch.record_completed(f"r{i}", duration_ms=1.0, rows_returned=1, bytes_returned=1)
-                self.assertEqual(os.listdir(d), [])
-            finally:
-                os.chdir(old)
 
 
 # ---------------------------------------------------------------- summary

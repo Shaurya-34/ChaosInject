@@ -1,4 +1,4 @@
-"""Fixed demo/runtime policy limits (deterministic, not learner-tuned)."""
+"""Fixed demo/runtime policy limits (deterministic)."""
 
 MAX_FAULT_DURATION_SECONDS = 60
 LOCAL_DEMO_TARGET_ID = "demo-target"
