@@ -7,12 +7,12 @@ type Spec={title:string;names:{key:string;label:string;color:string}[];unit:stri
 
 const SPECS:Spec[]=[
   {title:'Independent probe vs controller probe (ms)',unit:'ms',names:[
-    {key:'controller_latency_ms',label:'controller probe',color:'#0b8178'},
-    {key:'probe_duration_ms',label:'blackbox probe',color:'#c57820'}]},
+    {key:'controller_latency_ms',label:'controller probe',color:'#0b7285'},
+    {key:'probe_duration_ms',label:'blackbox probe',color:'#5f3dc4'}]},
   {title:'Independent probe success (1 = ok)',unit:'',step:true,names:[{key:'probe_success',label:'blackbox success',color:'#456'}]},
   {title:'Target container network (packets/s sent)',unit:'pkt/s',names:[{key:'target_net_tx_pps',label:'tx packets/s',color:'#0b8178'}]},
   {title:'Target container memory (MiB)',unit:'MiB',scale:1/1048576,names:[{key:'target_memory_bytes',label:'working set',color:'#587179'}]},
-  {title:'Target last seen (s ago; grows if it dies)',unit:'s',names:[{key:'target_last_seen_age_s',label:'seconds since last seen',color:'#b14343'}]},
+  {title:'Target last seen (s ago; grows if it dies)',unit:'s',names:[{key:'target_last_seen_age_s',label:'seconds since last seen',color:'#1864ab'}]},
 ];
 
 /** Supporting views from Prometheus. The controller's own chart above stays the primary one. */
@@ -47,7 +47,7 @@ export function PrometheusCharts({runId}:{runId:string}){
         <ResponsiveContainer width="100%" height={170}>
           <ComposedChart data={rows} margin={{top:6,right:12,bottom:6,left:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e3ebed"/>
-            {spans.map((s,i)=><ReferenceArea key={i} x1={s.x1} x2={s.x2} fill="#f6d9d9" fillOpacity={0.5} ifOverflow="visible"/>)}
+            {spans.map((s,i)=><ReferenceArea key={i} x1={s.x1} x2={s.x2} fill="#d0bfff" fillOpacity={0.35} ifOverflow="visible"/>)}
             <XAxis type="number" dataKey="x" domain={['dataMin','dataMax']} tickFormatter={v=>`${v}s`} fontSize={10}/>
             <YAxis fontSize={10} width={46} domain={spec.step?[0,1]:['auto','auto']}/>
             <Tooltip formatter={(v:number,n:string)=>[`${Math.round(v*100)/100} ${spec.unit}`.trim(),n]}/>

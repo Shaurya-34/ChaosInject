@@ -119,9 +119,9 @@ function RunDetail({run}:{run:ChaosRun}){
   const end=all.length?Math.max(...all.map(s=>s.t)):t0;
   const fs=run.fault_started,fe=run.fault_ended;
   const phases=[
-    {name:'Baseline',x1:rel(t0),x2:rel(fs??(run.during[0]?.t??end)),fill:'#d9ecf2'},
-    ...(fs!=null?[{name:'Fault',x1:rel(fs),x2:rel(fe??end),fill:'#f6d9d9'}]:[]),
-    ...(fe!=null?[{name:'Recovery',x1:rel(fe),x2:rel(end),fill:'#dcefe0'}]:[]),
+    {name:'Baseline',x1:rel(t0),x2:rel(fs??(run.during[0]?.t??end)),fill:'#d9ecf2',opacity:0.55},
+    ...(fs!=null?[{name:'Fault',x1:rel(fs),x2:rel(fe??end),fill:'#d0bfff',opacity:0.35}]:[]),
+    ...(fe!=null?[{name:'Recovery',x1:rel(fe),x2:rel(end),fill:'#dcefe0',opacity:0.55}]:[]),
   ];
   const bad=!run.recovered;
   return <section className="panel chaos-detail" aria-label="Run detail">
@@ -132,13 +132,13 @@ function RunDetail({run}:{run:ChaosRun}){
     <div className="chaos-chart" role="img" aria-label="Latency over time with baseline, fault and recovery phases shaded"><ResponsiveContainer width="100%" height={300}>
       <ComposedChart data={points} margin={{top:10,right:20,bottom:20,left:0}}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e3ebed"/>
-        {phases.map(p=><ReferenceArea key={p.name} x1={p.x1} x2={p.x2} fill={p.fill} fillOpacity={0.55} ifOverflow="visible" label={{value:p.name,position:'insideTop',fontSize:11,fill:'#456'}}/>)}
+        {phases.map(p=><ReferenceArea key={p.name} x1={p.x1} x2={p.x2} fill={p.fill} fillOpacity={p.opacity} ifOverflow="visible" label={{value:p.name,position:'insideTop',fontSize:11,fill:'#456'}}/>)}
         <XAxis type="number" dataKey="x" domain={['dataMin','dataMax']} tickFormatter={v=>`${v}s`} label={{value:'seconds since first probe',position:'insideBottom',offset:-10,fontSize:11}}/>
         <YAxis label={{value:'latency (ms)',angle:-90,position:'insideLeft',fontSize:11}}/>
         <Tooltip formatter={(v:number,n:string)=>[`${v} ms`,n]}/>
         <Legend verticalAlign="top" height={28}/>
         <Line type="monotone" dataKey="latency" name="latency (ok probes)" stroke="#0b8178" strokeWidth={2} dot={{r:2}} connectNulls isAnimationActive={false}/>
-        <Scatter dataKey="failed" name="failed probe" fill="#b14343" shape="cross" isAnimationActive={false}/>
+        <Scatter dataKey="failed" name="failed probe" fill="#5f3dc4" shape="cross" isAnimationActive={false}/>
       </ComposedChart>
     </ResponsiveContainer></div>}
     <dl className="chaos-summary">
