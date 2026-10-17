@@ -1,0 +1,55 @@
+# Observability for chaos runs: Prometheus + blackbox probe of the hotel frontend + cAdvisor.
+# Start the hotel stack first (this joins its network), then:
+#   docker compose -f sandbox/observability/compose.yaml up -d
+# Prometheus UI: http://localhost:9090. Observability only: safety decisions stay in the controller.
+name: chaos-observability
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=2d
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks: [default, hotel]
+    restart: "no"
+
+  pushgateway:  # the controller (a short batch job on the host) pushes its metrics here
+    image: prom/pushgateway:v1.11.1@sha256:03738d278e082ee9821df730c741b3b465c251fc2b68a85883def301a55a6215
+    ports:
+      - "127.0.0.1:9091:9091"
+    networks: [default]
+    restart: "no"
+
+  blackbox:
+    image: prom/blackbox-exporter:v0.27.0@sha256:a50c4c0eda297baa1678cd4dc4712a67fdea713b832d43ce7fcc5f9bea05094d
+    command: [--config.file=/etc/blackbox_exporter/config.yml]
+    volumes:
+      - ./blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    networks: [default, hotel]
+    restart: "no"
+
+  cadvisor:
+    image: ghcr.io/google/cadvisor:0.55.0@sha256:b576f395b3c3cbab28ad5c7c548714897f86623ce318a2c1b866cb38d8149dfc
+    command: [--docker_only=true, --housekeeping_interval=2s]
+    privileged: true  # needed to read container cgroups; no ports are published
+    devices: [/dev/kmsg]
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks: [default]
+    restart: "no"
+
+volumes:
+  prometheus-data:
+
+networks:
+  hotel:
+    external: true
+    name: hotel-sandbox_default

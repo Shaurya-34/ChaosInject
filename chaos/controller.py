@@ -16,7 +16,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from chaos import hooks
+from chaos import hooks, metrics
 from chaos.faults import FAULTS
 
 POLICY_PATH = Path(__file__).resolve().parent / "policy.json"
@@ -143,7 +143,8 @@ def recover_abandoned(marker, policy, faults=FAULTS, log=print):
 
 
 def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, sleep=time.sleep,
-        check_baseline=hooks.check_baseline, log=lambda msg: None, marker=None, stop_file=None):
+        check_baseline=hooks.check_baseline, log=lambda msg: None, marker=None, stop_file=None,
+        metrics=None):
     check_policy(exp, policy)
 
     def say(msg):
@@ -151,6 +152,13 @@ def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, 
             log(msg)
         except Exception:
             pass  # output problems (e.g. a closed pipe) must never block a restore
+
+    def note(method, *args):
+        if metrics is not None:
+            try:
+                getattr(metrics, method)(*args)
+            except Exception:
+                pass  # metrics are observability only; they must never affect a run
 
     hooks.reset_state()  # fresh safety window for every run
     fault = fault or FAULTS[exp["fault"]](exp)
@@ -162,6 +170,7 @@ def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, 
     for _ in range(exp["baseline_samples"]):
         record["baseline"].append(probe_fn(url))
         say(_fmt("baseline", record["baseline"][-1]))
+        note("sample", "baseline", record["baseline"][-1])
         sleep(interval)
 
     # Pre-flight: never inject into an app that is already unhealthy.
@@ -182,6 +191,7 @@ def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, 
     try:
         say(f"injecting {exp['fault']} into {exp['target']} for up to {exp['duration_s']}s")
         fault.inject(exp["target"])
+        note("set_fault", True)
         end = time.monotonic() + exp["duration_s"]
         while time.monotonic() < end:
             if time.monotonic() > deadline:
@@ -194,6 +204,7 @@ def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, 
             sample = probe_fn(url)
             record["during"].append(sample)
             say(_fmt("fault", sample))
+            note("sample", "fault", sample)
             reason = should_stop(sample, record["baseline"], policy)
             if reason:
                 record["stop_reason"] = f"safety: {reason}"
@@ -211,6 +222,7 @@ def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, 
             marker.unlink(missing_ok=True)  # only reached if restore succeeded
         record["fault_ended"] = time.time()
         say(f"restored {exp['target']}")
+        note("set_fault", False)
 
     restored_at = time.monotonic()
     recovery_end = min(deadline, restored_at + policy["recovery_timeout_s"])
@@ -218,6 +230,7 @@ def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, 
         sample = probe_fn(url)
         record["recovery"].append(sample)
         say(_fmt("recovery", sample))
+        note("sample", "recovery", sample)
         if sample["ok"]:
             record["recovered"] = True
             record["recovery_s"] = round(time.monotonic() - restored_at, 2)
@@ -253,13 +266,23 @@ def _main_locked(argv, policy):
     exp = json.loads(Path(argv[1]).read_text())
     stop_file = stop_path()
     stop_file.unlink(missing_ok=True)  # a stale request must not stop this new run
+    run_metrics = metrics.Metrics(exp)
+    gateway = os.environ.get("CHAOS_PUSHGATEWAY", "http://127.0.0.1:9091")  # empty disables
+    pusher = metrics.Pusher(run_metrics, gateway).start() if gateway else None
+    record = None
     try:
         recover_abandoned(marker, policy)
         record = run(exp, policy, log=lambda msg: print(msg, flush=True), marker=marker,
-                     stop_file=stop_file)
+                     stop_file=stop_file, metrics=run_metrics)
     except PolicyError as e:
         sys.exit(f"refused: {e}")
+    finally:
+        if pusher and record is None:  # refused or crashed: clear this run from the gateway
+            pusher.stop()
     path = hooks.save_result(record)
+    run_metrics.finish(record)
+    if pusher:
+        pusher.stop(linger=float(os.environ.get("CHAOS_METRICS_LINGER_S", "3")) if pusher.pushes else 0)
     print(f"stop reason: {record['stop_reason']}")
     if record.get("refused"):
         print("no fault injected")

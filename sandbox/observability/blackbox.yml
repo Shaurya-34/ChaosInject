@@ -1,0 +1,6 @@
+modules:
+  http_2xx:
+    prober: http
+    timeout: 1900ms  # under the 2s scrape timeout
+    http:
+      preferred_ip_protocol: ip4

@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from chaos import controller, faults, hooks
+from chaos import controller, faults, hooks, metrics
 from chaos.controller import PolicyError, run
 
 # These tests check controller mechanics, not safety rules, so the safety hook never stops.
@@ -359,6 +359,93 @@ class PacketLossTest(unittest.TestCase):
         self.assertTrue(r["recovered"])
 
 
+class MetricsTest(unittest.TestCase):
+    def test_controller_reports_each_phase_in_order(self):
+        events = []
+
+        class Spy:
+            def sample(self, phase, s):
+                events.append(phase)
+
+            def set_fault(self, active):
+                events.append(f"fault={active}")
+
+        f = FakeFault()
+        run(EXP, POLICY, fault=f, probe_fn=probe_for(f), should_stop=NEVER_STOP, metrics=Spy())
+        self.assertEqual(events[:3], ["baseline"] * 3)
+        self.assertEqual(events[3], "fault=True")
+        self.assertIn("fault", events)
+        self.assertEqual(events[-2:], ["fault=False", "recovery"])
+
+    def test_broken_metrics_never_affect_the_run(self):
+        class Broken:
+            def __getattr__(self, name):
+                raise RuntimeError("metrics down")
+
+        f = FakeFault()
+        r = run(EXP, POLICY, fault=f, probe_fn=probe_for(f), should_stop=NEVER_STOP, metrics=Broken())
+        self.assertEqual(f.calls, ["inject", "restore"])
+        self.assertTrue(r["recovered"])
+
+    def test_render_exposition_format(self):
+        m = metrics.Metrics({"name": "e1", "target": "web", "fault": "packet_loss"})
+        m.sample("baseline", {"ok": True, "status": 200, "latency_ms": 5.0})
+        m.set_fault(True)
+        m.sample("fault", {"ok": False, "status": None, "latency_ms": 2000.0})
+        text = m.render()
+        base = 'experiment="e1",target="web",fault="packet_loss"'
+        self.assertIn(f"chaos_fault_active{{{base}}} 1", text)
+        self.assertIn(f'chaos_phase{{{base},phase="fault"}} 1', text)
+        self.assertIn(f"chaos_probe_status{{{base}}} -1", text)
+        self.assertIn(f'chaos_probes_total{{{base},phase="fault",result="fail"}} 1', text)
+        self.assertNotIn("chaos_recovered", text)  # only after the run ends
+        m.finish({"stop_reason": 'safety: p95 "slow"', "recovered": True, "recovery_s": 0.02})
+        text = m.render()
+        self.assertIn(f"chaos_safety_stop{{{base}}} 1", text)
+        self.assertIn(f"chaos_recovery_seconds{{{base}}} 0.02", text)
+        self.assertIn('reason="safety: p95 \\"slow\\""', text)
+        self.assertIn(f"chaos_fault_active{{{base}}} 0", text)
+
+    def test_pusher_puts_then_deletes(self):
+        import threading
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        seen = []
+
+        class Gateway(BaseHTTPRequestHandler):
+            def _ok(self):
+                body = self.rfile.read(int(self.headers.get("Content-Length") or 0)).decode()
+                seen.append((self.command, self.path, body))
+                self.send_response(200)
+                self.end_headers()
+
+            do_PUT = do_DELETE = _ok
+
+            def log_message(self, *args):
+                pass
+
+        gw = HTTPServer(("127.0.0.1", 0), Gateway)
+        threading.Thread(target=gw.serve_forever, daemon=True).start()
+        try:
+            m = metrics.Metrics({"name": "e1"})
+            p = metrics.Pusher(m, f"http://127.0.0.1:{gw.server_address[1]}", interval=0.05).start()
+            time.sleep(0.2)
+            m.finish({"stop_reason": "duration elapsed", "recovered": True, "recovery_s": 1.0})
+            p.stop(linger=0)
+        finally:
+            gw.shutdown()
+        self.assertTrue(all(path == "/metrics/job/chaos_controller" for _, path, _ in seen))
+        self.assertEqual(seen[-1][0], "DELETE")
+        self.assertIn("chaos_recovered", seen[-2][2])  # final state pushed before the delete
+        self.assertGreater(p.pushes, 1)
+
+    def test_pusher_without_gateway_never_raises(self):
+        m = metrics.Metrics({"name": "e1"})
+        p = metrics.Pusher(m, "http://127.0.0.1:9", interval=0.05, timeout=0.2).start()
+        p.stop(linger=0)
+        self.assertEqual(p.pushes, 0)
+        self.assertGreater(p.failures, 0)
+
+
 def dead_pid():
     p = subprocess.Popen([sys.executable, "-c", "pass"])
     p.wait()
@@ -465,6 +552,7 @@ class BaselineCheckTest(unittest.TestCase):
                    "baseline": [], "during": [], "recovery": [], "recovered": False, "recovery_s": None}
         with tempfile.TemporaryDirectory() as d, \
                 mock.patch.object(hooks, "RESULTS_DIR", Path(d)), \
+                mock.patch.dict(os.environ, {"CHAOS_PUSHGATEWAY": ""}), \
                 mock.patch.object(controller, "run", return_value=refused), \
                 mock.patch.object(hooks, "save_result", return_value="results/x.json") as save, \
                 mock.patch.object(controller.Path, "read_text", return_value="{}"), \
