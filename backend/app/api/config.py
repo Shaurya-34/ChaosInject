@@ -15,6 +15,7 @@ class Settings:
     namespace: str = "boutique"
     origins: tuple[str, ...] = ("http://127.0.0.1:5173", "http://localhost:5173", "http://127.0.0.1:8000", "http://localhost:8000")
     fake_runtime_enabled: bool = False
+    chaos_execution_enabled: bool = False
     def __post_init__(self):
         if self.mode not in ("fixture", "live", "replay", "demo"): raise ValueError("Unsupported data mode")
         if self.mode != "fixture" and not self.operator_token: raise ValueError("OPERATOR_TOKEN is required")
@@ -24,7 +25,7 @@ class Settings:
     @classmethod
     def environment(cls):
         port = int(os.getenv("LOCAL_API_PORT", "8000"))
-        return cls(origins=("http://127.0.0.1:5173", "http://localhost:5173", f"http://127.0.0.1:{port}", f"http://localhost:{port}"), mode=os.getenv("DATA_MODE", "fixture"), operator_token=os.getenv("OPERATOR_TOKEN", ""), sandbox_id=os.getenv("SANDBOX_ID", "fixture-sandbox"), context=os.getenv("KUBE_CONTEXT", "kind-bosch-sachin"), fake_runtime_enabled=os.getenv("FAKE_RUNTIME_ENABLED", "false").lower() == "true")
+        return cls(origins=("http://127.0.0.1:5173", "http://localhost:5173", f"http://127.0.0.1:{port}", f"http://localhost:{port}"), mode=os.getenv("DATA_MODE", "fixture"), operator_token=os.getenv("OPERATOR_TOKEN", ""), sandbox_id=os.getenv("SANDBOX_ID", "fixture-sandbox"), context=os.getenv("KUBE_CONTEXT", "kind-bosch-sachin"), fake_runtime_enabled=os.getenv("FAKE_RUNTIME_ENABLED", "false").lower() == "true", chaos_execution_enabled=os.getenv("CHAOS_EXECUTION_ENABLED", "false").lower() == "true")
 
 def configured_ports(settings):
     if settings.mode == "demo":

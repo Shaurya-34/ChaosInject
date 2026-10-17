@@ -2,7 +2,8 @@
 
 Usage: python -m chaos.controller experiments/dummy_web_stop.json
        python -m chaos.controller --recover   (restore a fault left by a killed run)
-Kill switch: Ctrl+C. The fault is always restored, even on error or interrupt.
+Kill switch: Ctrl+C, or create results/.stop_request (used by the API). The fault is always
+restored, even on error or interrupt.
 If the process itself is killed, the next run (or --recover) restores the leftover fault first.
 """
 
@@ -58,6 +59,11 @@ def marker_path():
     return hooks.RESULTS_DIR / ".active_fault.json"
 
 
+def stop_path():
+    """Creating this file asks a running controller to stop and restore (a kill switch without Ctrl+C)."""
+    return hooks.RESULTS_DIR / ".stop_request"
+
+
 def recover_abandoned(marker, policy, faults=FAULTS, log=print):
     """Restore a fault left behind by a killed run. Returns the restored target, or None."""
     if not marker.exists():
@@ -74,7 +80,7 @@ def recover_abandoned(marker, policy, faults=FAULTS, log=print):
 
 
 def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, sleep=time.sleep,
-        check_baseline=hooks.check_baseline, log=lambda msg: None, marker=None):
+        check_baseline=hooks.check_baseline, log=lambda msg: None, marker=None, stop_file=None):
     check_policy(exp, policy)
 
     def say(msg):
@@ -97,6 +103,8 @@ def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, 
 
     # Pre-flight: never inject into an app that is already unhealthy.
     reason = check_baseline(record["baseline"], policy)
+    if not reason and stop_file and stop_file.exists():
+        reason = "operator stop before injection"
     if reason:
         record["stop_reason"] = f"refused: {reason}"
         record["refused"] = True
@@ -115,6 +123,10 @@ def run(exp, policy, fault=None, probe_fn=probe, should_stop=hooks.should_stop, 
         while time.monotonic() < end:
             if time.monotonic() > deadline:
                 record["stop_reason"] = "hard timeout"
+                break
+            if stop_file and stop_file.exists():
+                record["stop_reason"] = "kill switch (operator stop)"
+                say("KILL SWITCH: operator stop")
                 break
             sample = probe_fn(url)
             record["during"].append(sample)
@@ -165,9 +177,12 @@ def main(argv):
         print("nothing to recover" if target is None else f"restored {target}")
         return
     exp = json.loads(Path(argv[1]).read_text())
+    stop_file = stop_path()
+    stop_file.unlink(missing_ok=True)  # a stale request must not stop this new run
     try:
         recover_abandoned(marker, policy)
-        record = run(exp, policy, log=lambda msg: print(msg, flush=True), marker=marker)
+        record = run(exp, policy, log=lambda msg: print(msg, flush=True), marker=marker,
+                     stop_file=stop_file)
     except PolicyError as e:
         sys.exit(f"refused: {e}")
     path = hooks.save_result(record)

@@ -104,6 +104,32 @@ class ControllerTest(unittest.TestCase):
                 run(EXP, POLICY, fault=f, probe_fn=probe_for(f), should_stop=NEVER_STOP, marker=marker)
             self.assertTrue(marker.exists())
 
+    def test_stop_file_during_fault_stops_and_restores(self):
+        f = FakeFault()
+        with tempfile.TemporaryDirectory() as d:
+            stop = Path(d) / ".stop_request"
+            healthy = probe_for(f)
+
+            def probe(url):
+                if f.down:
+                    stop.write_text("")  # operator asks to stop mid-fault
+                return healthy(url)
+
+            r = run({**EXP, "duration_s": 30}, POLICY, fault=f, probe_fn=probe,
+                    should_stop=NEVER_STOP, stop_file=stop)
+        self.assertEqual(r["stop_reason"], "kill switch (operator stop)")
+        self.assertEqual(len(r["during"]), 1)
+        self.assertEqual(f.calls, ["inject", "restore"])
+
+    def test_stop_file_before_injection_refuses(self):
+        f = FakeFault()
+        with tempfile.TemporaryDirectory() as d:
+            stop = Path(d) / ".stop_request"
+            stop.write_text("")
+            r = run(EXP, POLICY, fault=f, probe_fn=probe_for(f), should_stop=NEVER_STOP, stop_file=stop)
+        self.assertEqual(r["stop_reason"], "refused: operator stop before injection")
+        self.assertEqual(f.calls, [])
+
     def test_recover_abandoned_restores_allowlisted_target(self):
         restored = []
 

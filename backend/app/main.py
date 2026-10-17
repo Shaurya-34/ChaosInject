@@ -182,6 +182,8 @@ def create_app(settings: Settings | None = None, ports: Ports | None = None):
     async def demo_safety():
         if settings.mode != "demo": raise PortError("MUTATIONS_DISABLED")
         return DemoSafetyStatus(source="live", stop_latched=ports.runtime.latched, last_result=ports.runtime.last_result)
+    from app.api.chaos_runs import create_router as chaos_router
+    app.include_router(chaos_router(settings.chaos_execution_enabled))
     dist = Path(__file__).resolve().parents[2] / "frontend/dist"
     if dist.is_dir():
         app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
