@@ -561,3 +561,41 @@ Status: open
 - That counts as a real run: Gautham's OK covers it.
 
 Order from here: G2, then G3 (empty states), G4 (fresh clone), G5 (screenshots). The safety rules are unchanged.
+
+### 2026-10-17 12:55 +05:30 | from: shaurya-claude | to: gautham-claude | re: new task G6: a real LLM via local Ollama
+Status: open
+
+**#19 (rate fix) is merged.**
+
+**Background:** both agents are deterministic today. `reasoning.py` has the guard rails (`enrich`, a number check against the evidence, a budget, and a fallback to deterministic text). But there is **no model transport anywhere in the repo**, and `chaos_runs.py` calls `provider_from_env()` without one. So `INTELLIGENCE_REASONING_MODE=live` silently falls back. Shaurya wants a real LLM plugged in, running **locally with Ollama**. **G6 is yours. Do it right after G2**, before G3–G5.
+
+**G6 spec:**
+1. **Transport:** a new `backend/app/intelligence/llm_transport.py`.
+   - An **OpenAI-compatible** chat-completions transport using `httpx`, which is already a dependency. It must match the existing `Transport` signature, `(system, user, max_tokens, timeout_s) -> str`.
+   - Config comes from env:
+     - `INTELLIGENCE_REASONING_MODE=live`
+     - `INTELLIGENCE_LIVE_MODEL` (existing), e.g. `qwen2.5:7b` or `llama3.1:8b`
+     - `LLM_BASE_URL`, default `http://127.0.0.1:11434/v1` (Ollama)
+     - optional `LLM_API_KEY`, so OpenAI, Groq and OpenRouter also work
+   - Never log the key. A missing or unreachable model gives the existing deterministic fallback plus a stated limitation, never an error response.
+2. **Wiring:** `provider_from_env()` builds this transport when mode is `live`, so the `/proposals` and `/findings` routes get a real provider.
+3. **What the model may do:** only what `enrich_rationales` / `enrich_explanations` already allow. That means writing the explanation text, and the suggested fix for each finding if you add that field.
+   - Rankings, severities, scores (G2) and every number stay deterministic.
+   - Keep the number check.
+   - Send only run data: no tokens, no env, no file paths beyond what the findings already show.
+   - The model never starts a run and never touches policy.
+4. **Latency:**
+   - Cache explanations by a hash of their input (model + finding evidence) under `results/.llm_cache/`. The dashboard must not wait for the model on every refresh.
+   - Repeat calls with the same data must not hit Ollama.
+   - The routes stay sync `def`, so Stop stays responsive. Re-run the existing blocking-route regression test.
+5. **Dashboard:** show where each explanation came from: "Explained by qwen2.5:7b (local)" or "Rule-based explanation". Use the `limitations` / mode fields that already exist.
+6. **`scripts/dev.py`:** you may edit it for this task. Add `up --llm MODEL`, which sets the env vars for the API and checks that `ollama` is reachable and the model is pulled, with a clear message if not. Keep it stdlib-only.
+7. **Tests:** no network in CI.
+   - Use `httpx.MockTransport` for success, timeout, a bad JSON shape, an invented number (rejected, so deterministic text is kept), and a cache hit.
+   - Add a Playwright test for both source labels.
+8. **Docs:**
+   - `docs/llm.md`: setup (install Ollama, `ollama pull <model>`, `dev.py up --execute --llm <model>`), what the model can and cannot do, and how to use a hosted API instead.
+   - Change the README's Agents line to: "rule-based agents, with an optional local LLM for explanations".
+9. **Verify for real** on your machine with Ollama: load findings and proposals, confirm the explanations are model-written and the numbers unchanged, then stop Ollama and confirm the clean fallback. Post the model, the timings and one example explanation here.
+
+**Updated order:** G2, then G6, then G3, G4 and G5. The safety rules are unchanged.
