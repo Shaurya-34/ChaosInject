@@ -7,6 +7,7 @@ comes from the environment:
   INTELLIGENCE_LIVE_MODEL=<model id>    e.g. llama-3.3-70b-versatile (Groq) or qwen2.5:7b (Ollama)
   LLM_BASE_URL=<url>                    no default; Groq: https://api.groq.com/openai/v1
   LLM_API_KEY=<key>                     required for a hosted endpoint; never logged, never put in a URL
+  LLM_REASONING_EFFORT=low              optional; needed for reasoning models such as Groq's openai/gpt-oss-*
 
 The model may only reword explanation text (see ``enrich_rationales`` / ``enrich_explanations``): rankings,
 severities, scores and every number stay deterministic and the number check rejects invented figures. A
@@ -73,8 +74,14 @@ def make_transport(
     model: str,
     api_key: str = "",
     http_transport: httpx.BaseTransport | None = None,
+    reasoning_effort: str = "",
 ) -> Callable[[str, str, int, float], str]:
-    """Build a ``(system, user, max_tokens, timeout_s) -> text`` transport for ``chat/completions``."""
+    """Build a ``(system, user, max_tokens, timeout_s) -> text`` transport for ``chat/completions``.
+
+    ``reasoning_effort`` ("low", "medium" or "high") is sent when set. Reasoning models (Groq's
+    ``openai/gpt-oss-*``) spend hidden tokens thinking before they answer; with the small output cap used here
+    they can run out and return no text unless the effort is low.
+    """
 
     url = base_url.rstrip("/") + "/chat/completions"
     host = _host(base_url)
@@ -95,11 +102,14 @@ def make_transport(
             "stream": False,
             "response_format": {"type": "json_object"},
         }
+        if reasoning_effort:
+            body["reasoning_effort"] = reasoning_effort
         try:
             with httpx.Client(transport=http_transport, timeout=timeout_s, follow_redirects=False) as client:
                 response = client.post(url, headers=headers, json=body)
-                if response.status_code == 400:  # some models or hosts reject JSON mode; ask again without it
+                if response.status_code == 400:  # some models or hosts reject JSON mode or reasoning_effort; ask again without
                     body.pop("response_format")
+                    body.pop("reasoning_effort", None)
                     response = client.post(url, headers=headers, json=body)
         except httpx.TimeoutException:
             _start_backoff(host, BACKOFF_S)
@@ -120,7 +130,8 @@ def make_transport(
         except (ValueError, KeyError, IndexError, TypeError):
             raise LLMError("the model endpoint returned an unexpected response shape") from None
         if not isinstance(content, str) or not content.strip():
-            raise LLMError("the model returned no text")
+            raise LLMError("the model returned no text (a reasoning model may have used all its output tokens "
+                           "thinking; try LLM_REASONING_EFFORT=low)")
         fenced = _FENCE.match(content)
         return fenced.group(1) if fenced else content
 
@@ -144,7 +155,10 @@ def transport_from_env() -> tuple[Callable[[str, str, int, float], str] | None, 
             return None, None, [f"The hosted model endpoint {_host(base_url)} must use https; rule-based explanations are shown."]
         if not key:
             return None, None, [f"LLM_API_KEY is not set for {_host(base_url)}; rule-based explanations are shown."]
-    return make_transport(base_url, model, key), location, []
+    effort = os.environ.get("LLM_REASONING_EFFORT", "").strip().lower()
+    if effort not in ("", "low", "medium", "high"):
+        return None, None, ["LLM_REASONING_EFFORT must be low, medium or high; rule-based explanations are shown."]
+    return make_transport(base_url, model, key, reasoning_effort=effort), location, []
 
 
 # ---------------------------------------------------------------------------

@@ -148,7 +148,8 @@ def check_llm(model, base_url, api_key="", opener=urllib.request.urlopen):
     location = _llm_location(base_url)
 
     def get(url, headers=None):
-        request = urllib.request.Request(url, headers=headers or {})
+        # Cloudflare in front of hosted APIs (Groq) rejects urllib's default user-agent with HTTP 403 (error 1010)
+        request = urllib.request.Request(url, headers={"User-Agent": "chaosinject-dev/0.1", **(headers or {})})
         with opener(request, timeout=8) as response:
             return json.loads(response.read().decode("utf-8"))
 
@@ -201,6 +202,8 @@ def start_api(execute, llm=None):  # llm may carry the key; it goes only into th
         env.update(INTELLIGENCE_REASONING_MODE="live", INTELLIGENCE_LIVE_MODEL=llm["model"], LLM_BASE_URL=llm["base_url"])
         if llm.get("key"):
             env["LLM_API_KEY"] = llm["key"]
+        if "gpt-oss" in llm["model"]:  # reasoning models return no text if they spend the output cap thinking
+            env.setdefault("LLM_REASONING_EFFORT", "low")
     LOG.parent.mkdir(exist_ok=True)
     detach = ({"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS}
               if os.name == "nt" else {"start_new_session": True})

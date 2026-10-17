@@ -46,14 +46,15 @@ class HotelSetupTests(unittest.TestCase):
         self.assertEqual(output["services"]["review"]["depends_on"]["mongodb-review"]["condition"], "service_healthy")
         self.assertEqual(output["services"]["frontend"]["platform"], "linux/amd64")
 
-    def test_fix_cache_builds_rate_and_profile_from_patched_source(self):
+    def test_fix_cache_builds_the_patched_services_from_source(self):
         names = prepare.APP_SERVICES | {"consul", "jaeger"}
         names |= {"mongodb-" + x for x in ("geo", "rate", "profile", "recommendation", "reservation", "user", "review", "attractions")}
         names |= {"memcached-" + x for x in ("rate", "profile", "reserve", "review")}
         model = {"services": {name: {"image": "x"} for name in names}}
         lock = json.loads((ROOT / "sandbox/hotel/images.lock.json").read_text())
         services = prepare.configure(model, lock, Path("/tmp/source"), fix_cache=True)["services"]
-        for name in ("rate", "profile"):
+        self.assertEqual(set(prepare.CACHE_FIXES), {"rate", "profile", "reservation"})
+        for name in prepare.CACHE_FIXES:
             self.assertEqual(services[name]["build"]["dockerfile"], "Dockerfile.cache-fix")
             self.assertEqual(services[name]["image"].split("/")[1].split(":")[0], name)
             self.assertTrue(services[name]["image"].endswith("-cache-fallback"))
@@ -67,14 +68,18 @@ class HotelSetupTests(unittest.TestCase):
             source = Path(tmp)
             for name, edits in prepare.CACHE_FIXES.items():
                 (source / "services" / name).mkdir(parents=True)
-                (source / "services" / name / "server.go").write_text("".join(o + "...\n" for o, _ in edits))
+                (source / "services" / name / "server.go").write_text("".join((o + "...\n") * n for o, _, n in edits))
             prepare.write_cache_fix(source, "FROM go\nCOPY services/ services/\nRUN build\n")
             dockerfile = (source / "Dockerfile.cache-fix").read_text()
-            for name in ("rate", "profile"):
+            for name in prepare.CACHE_FIXES:
                 patched = (source / "sandbox-patches" / name / "server.go").read_text()
                 self.assertNotIn("log.Panic", patched)
-                self.assertIn("falling back to MongoDB", patched)
-                self.assertIn("markCacheDown()", patched)
+                if name == "reservation":  # every client call goes through the wrappers
+                    self.assertNotIn("s.MemcClient.Get", patched)
+                    self.assertNotIn("s.MemcClient.Set", patched)
+                    self.assertIn("cacheGetMulti(s.MemcClient", patched)
+                else:
+                    self.assertIn("markCacheDown()", patched)
                 breaker = (source / "sandbox-patches" / name / "cache_breaker.go").read_text()
                 self.assertTrue(breaker.startswith("package " + name + "\n"))
                 self.assertIn(f"COPY sandbox-patches/{name}/ services/{name}/", dockerfile)

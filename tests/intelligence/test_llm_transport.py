@@ -99,6 +99,32 @@ def test_json_mode_is_dropped_and_retried_when_the_host_rejects_it():
     assert len(bodies) == 2 and "response_format" not in bodies[1]
 
 
+def test_reasoning_effort_is_sent_only_when_set_and_dropped_if_the_host_rejects_it():
+    bodies = []
+
+    def handler(request):
+        bodies.append(json.loads(request.content))
+        return httpx.Response(400, json={"error": "unknown parameter"}) if "reasoning_effort" in bodies[-1] \
+            else httpx.Response(200, json=completion("{}"))
+
+    lt.make_transport(GROQ, "m", KEY, http_transport=mock(handler))("s", "u", 10, 5.0)
+    assert "reasoning_effort" not in bodies[0]
+    bodies.clear()
+    lt.make_transport(GROQ, "openai/gpt-oss-20b", KEY, http_transport=mock(handler), reasoning_effort="low")("s", "u", 10, 5.0)
+    assert bodies[0]["reasoning_effort"] == "low"
+    assert len(bodies) == 2 and "reasoning_effort" not in bodies[1]  # retried without it
+
+
+def test_reasoning_effort_comes_from_the_environment_and_is_validated(monkeypatch):
+    monkeypatch.setenv("LLM_BASE_URL", GROQ)
+    monkeypatch.setenv("LLM_API_KEY", KEY)
+    monkeypatch.setenv("LLM_REASONING_EFFORT", "low")
+    assert lt.transport_from_env()[0] is not None
+    monkeypatch.setenv("LLM_REASONING_EFFORT", "extreme")
+    transport, _, notes = lt.transport_from_env()
+    assert transport is None and "LLM_REASONING_EFFORT" in notes[0] and KEY not in notes[0]
+
+
 @pytest.mark.parametrize("handler,needle", [
     (lambda r: (_ for _ in ()).throw(httpx.ReadTimeout("slow")), "timed out"),
     (lambda r: (_ for _ in ()).throw(httpx.ConnectError("refused")), "unreachable"),
@@ -339,7 +365,7 @@ def go_live(monkeypatch, handler):
     monkeypatch.setenv("LLM_BASE_URL", GROQ)
     monkeypatch.setenv("LLM_API_KEY", KEY)
     real = lt.make_transport
-    monkeypatch.setattr(lt, "make_transport", lambda base, model, key="", http_transport=None: real(base, model, key, http_transport=mock(handler)))
+    monkeypatch.setattr(lt, "make_transport", lambda base, model, key="", http_transport=None, **kw: real(base, model, key, http_transport=mock(handler), **kw))
 
 
 def test_default_routes_are_rule_based_and_say_so(client, monkeypatch):
@@ -439,6 +465,19 @@ def test_dev_local_check_needs_a_running_ollama_with_the_model_pulled():
         dev.check_llm("qwen2.5:7b", base, opener=opener_for({"models": [{"name": "other:1b"}]}))
     with pytest.raises(SystemExit, match="Install Ollama"):
         dev.check_llm("qwen2.5:7b", base, opener=opener_for(error=urllib.error.URLError("refused")))
+
+
+def test_dev_hosted_check_sends_its_own_user_agent():
+    """Groq's Cloudflare answers urllib's default user-agent with HTTP 403 (error 1010)."""
+    dev = load_dev()
+    agents = []
+
+    def opener(request, timeout=None):
+        agents.append(request.get_header("User-agent"))
+        return FakeResponse({"data": [{"id": "m"}]})
+
+    dev.check_llm("m", GROQ, KEY, opener=opener)
+    assert agents and agents[0].startswith("chaosinject") and "urllib" not in agents[0].lower()
 
 
 def test_dev_hosted_check_needs_https_a_key_and_a_model_the_host_offers():
