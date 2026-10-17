@@ -187,3 +187,27 @@ def test_policy_refused_and_unknown_experiment(results, spawned, tmp_path, monke
         assert r.status_code == 422 and r.json()["code"] == "POLICY_REFUSED"
         assert c.post("/api/v1/chaos/experiments/missing/run").status_code == 404
     assert spawned == []
+
+
+def test_active_reports_execution_flag(results):
+    with client(False) as c:
+        assert c.get("/api/v1/chaos/active").json()["execution_enabled"] is False
+    with client(True) as c:
+        assert c.get("/api/v1/chaos/active").json()["execution_enabled"] is True
+
+
+def test_slow_agent_call_does_not_block_active(results, monkeypatch):
+    import threading
+    import time as _time
+    from app.intelligence import monitoring_agent
+
+    real = monitoring_agent.analyze
+    monkeypatch.setattr(monitoring_agent, "analyze", lambda *a, **k: (_time.sleep(1.5), real(*a, **k))[1])
+    with client(False) as c:
+        slow = threading.Thread(target=lambda: c.get("/api/v1/chaos/findings"))
+        slow.start()
+        _time.sleep(0.2)  # let the slow request start
+        t0 = _time.monotonic()
+        assert c.get("/api/v1/chaos/active").status_code == 200
+        assert _time.monotonic() - t0 < 1.0  # served while /findings is still busy
+        slow.join()
