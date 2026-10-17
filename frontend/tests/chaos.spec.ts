@@ -351,6 +351,11 @@ test('every problem at once is listed, uses cold colours and fits a phone screen
   await page.setViewportSize({width:390,height:844});await openChaosRuns(page);
   for(const id of ['execution','sandbox','prometheus','no-runs'])await expect(checklist(page).locator(`[data-item="${id}"]`)).toBeVisible();
   expect(await warmColours(page)).toEqual([]);
+  // Name the elements that stick out, so a failure says what to fix rather than only that something is too wide.
+  const sticksOut=await page.evaluate(()=>[...document.body.querySelectorAll('*')].filter(e=>{
+    const r=e.getBoundingClientRect();return r.width>0&&r.right>window.innerWidth+0.5&&!e.closest('table');
+  }).slice(0,12).map(e=>`${e.tagName.toLowerCase()}.${String(e.className).slice(0,40)} right=${Math.round(e.getBoundingClientRect().right)} of ${window.innerWidth}: "${(e.textContent??'').trim().slice(0,30)}"`));
+  expect(sticksOut).toEqual([]);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth)).toBe(false);
 });
 
