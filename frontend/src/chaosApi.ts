@@ -35,6 +35,9 @@ export type Proposals={proposals:Proposal[];rejected:{target:string;fault:string
 export type Finding={
   id:string;severity:number;severity_label:string;title:string;target:string;fault:string;affected_endpoints:string[];
   explanation:string;suggested_fix:string;run_ids:string[];explanation_source:string;explanation_model?:string|null;
+  /** What the LATEST run of this target and fault showed (absent on older servers, which means open). */
+  status?:'open'|'improved'|'fixed_since';status_label?:string;latest_run_id?:string;latest_state?:string;
+  latest_severity?:number|null;runs_total?:number;runs_with_weakness?:number;
   evidence:{run_id:string;stop_reason:string|null;recovered:boolean|null;recovery_s:number|null;baseline_p95_ms:number|null;during_p95_ms:number|null;during_error_rate:number|null}[];
 };
 export type Findings={findings:Finding[];runs_analyzed:number;runs_without_findings:number;runs_not_evaluated:number;limitations:string[];llm?:LlmInfo};
