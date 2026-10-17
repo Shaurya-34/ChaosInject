@@ -32,14 +32,16 @@ With a **hosted** endpoint such as Groq this data goes to a third party. With a 
    ```
 
    (Or export `LLM_API_KEY` / `GROQ_KEY` and `LLM_BASE_URL` in your shell instead; the environment wins over `.env`.)
-3. Pick a chat model from the list your account offers. A reasonable starting point is `llama-3.3-70b-versatile`, a large model with JSON output (model names change, so check Groq's current list; `up` tells you if the model is not offered). The number check keeps the rule-based text if a smaller model invents figures.
+3. Pick a chat model from the list your account offers (model names change, so check Groq's current list; `up` tells you if the model is not offered and names some it does). **Tested: `openai/gpt-oss-20b`**: six findings explained in about 1 s, cached afterwards. The number check keeps the rule-based text if a model invents figures.
+
+   `gpt-oss-*` are *reasoning* models: they think before they answer, and with the small output cap used here they can spend all of it thinking and return nothing. `dev.py up` therefore sets `LLM_REASONING_EFFORT=low` for them. For any other reasoning model, export `LLM_REASONING_EFFORT=low` yourself (it is sent to the endpoint as `reasoning_effort`; if the host rejects it, the request is retried without).
 4. Start:
 
    ```bash
-   python scripts/dev.py up --execute --llm llama-3.3-70b-versatile
+   python scripts/dev.py up --execute --llm openai/gpt-oss-20b
    ```
 
-   Before starting anything, `up` checks that the key is accepted and the model is offered (one small request that sends no run data). It prints that run summaries will be sent to `api.groq.com`. `dev.py status` then says `LLM llama-3.3-70b-versatile via groq, key set (from .env)`, never the key.
+   Before starting anything, `up` checks that the key is accepted and the model is offered (one small request that sends no run data). It prints that run summaries will be sent to `api.groq.com`. `dev.py status` then says `LLM openai/gpt-oss-20b via groq, key set (from .env)`, never the key.
 
 ### How `dev.py` treats `.env` and the key
 
