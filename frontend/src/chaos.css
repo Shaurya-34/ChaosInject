@@ -18,3 +18,7 @@
 .chaos-callout.safety{border-left-color:#b14343;background:#fff6f6}
 .chaos-chart{margin:16px 0}
 .chaos-summary{margin-top:8px}
+.suggest-row{display:flex;gap:16px;align-items:flex-start;padding:16px 0;border-bottom:1px solid #edf1f2}
+.suggest-row p{margin:6px 0 0}
+.suggest-row button{margin-left:auto;white-space:nowrap}
+.chaos-suggest details{margin-top:14px;font-size:12px}

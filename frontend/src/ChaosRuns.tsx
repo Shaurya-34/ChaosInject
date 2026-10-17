@@ -1,7 +1,7 @@
 import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {AlertTriangle,OctagonX,Play,RotateCcw} from 'lucide-react';
 import {CartesianGrid,ComposedChart,Legend,Line,ReferenceArea,ResponsiveContainer,Scatter,Tooltip,XAxis,YAxis} from 'recharts';
-import {ChaosApiError,chaos,phaseFromLog,refusalMessage,type ActiveRun,type ChaosRun,type ExperimentRow,type IndexEntry} from './chaosApi';
+import {ChaosApiError,chaos,phaseFromLog,refusalMessage,type ActiveRun,type ChaosRun,type ExperimentRow,type IndexEntry,type Proposals} from './chaosApi';
 
 const pct=(x:number|null|undefined)=>x==null?'n/a':`${Math.round(x*100)}%`;
 const ms=(x:number|null|undefined)=>x==null?'n/a':`${Math.round(x)} ms`;
@@ -10,6 +10,7 @@ const secs=(x:number|null|undefined)=>x==null?'n/a':`${x.toFixed(1)} s`;
 export function ChaosRuns({source}:{source?:string}){
   const [experiments,setExperiments]=useState<ExperimentRow[]>([]);
   const [runs,setRuns]=useState<IndexEntry[]>([]);
+  const [suggested,setSuggested]=useState<Proposals>();
   const [active,setActive]=useState<ActiveRun>();
   const [detail,setDetail]=useState<ChaosRun>();
   const [selected,setSelected]=useState<string>();
@@ -26,6 +27,7 @@ export function ChaosRuns({source}:{source?:string}){
 
   useEffect(()=>{
     chaos<ExperimentRow[]>('/experiments').then(setExperiments).catch(e=>setMessage(refusalMessage(e)));
+    chaos<Proposals>('/proposals').then(setSuggested).catch(()=>{});
     loadRuns().catch(e=>setMessage(refusalMessage(e)));
   },[loadRuns]);
 
@@ -96,6 +98,7 @@ export function ChaosRuns({source}:{source?:string}){
       </section>
     </div>
 
+    {suggested&&<SuggestedExperiments data={suggested} onCopied={()=>setMessage('Experiment JSON copied. Review it, then save it under experiments/ to make it runnable.')}/>}
     {detail&&<RunDetail run={detail}/>}
   </div>;
 }
@@ -135,5 +138,22 @@ function RunDetail({run}:{run:ChaosRun}){
     <dl className="chaos-summary">
       {(['baseline','during','recovery'] as const).map(k=><React.Fragment key={k}><dt>{k}</dt><dd>{run.summary[k].count} probes · {run.summary[k].failures} failed · p95 {ms(run.summary[k].p95_ms)}</dd></React.Fragment>)}
     </dl>
+  </section>;
+}
+
+function SuggestedExperiments({data,onCopied}:{data:Proposals;onCopied:()=>void}){
+  const copy=(p:Proposals['proposals'][number])=>navigator.clipboard?.writeText(JSON.stringify(p.experiment,null,2)).then(onCopied).catch(()=>{});
+  return <section className="panel chaos-suggest" aria-label="Suggested experiments">
+    <div className="panel-title"><h2>Suggested next experiments</h2><span className="small-tag">PROPOSALS ONLY</span></div>
+    <p className="muted">Ranked by the injection agent from the dependency map and run history. Every proposal passed the controller policy check. Nothing here is saved or started; a person decides.</p>
+    {data.limitations.map(l=><p key={l} className="muted">{l}</p>)}
+    {data.proposals.length===0&&<p className="empty">No allowed experiment to propose.</p>}
+    {data.proposals.map((p,i)=><div className="suggest-row" key={p.experiment.name}>
+      <span className="rank">{i+1}</span>
+      <div><strong>{p.experiment.name}</strong> <span className="small-tag">{p.experiment.fault}</span> <span className="small-tag">score {p.score}</span>
+        <p>{p.rationale}</p><p className="muted">{p.expected_impact}</p></div>
+      <button onClick={()=>copy(p)} title="Copy the experiment JSON to the clipboard">Copy JSON</button>
+    </div>)}
+    {data.rejected.length>0&&<details><summary>{data.rejected.length} candidates refused by policy</summary><ul className="muted">{data.rejected.slice(0,40).map(r=><li key={r.target+r.fault}>{r.target} · {r.fault}: {r.reason}</li>)}</ul></details>}
   </section>;
 }
