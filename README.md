@@ -60,6 +60,8 @@ The controller enforces safety, not the AI. AI output is a recommendation, never
 
 ## Docs
 
+- [Architecture](docs/architecture.md): components, one run end to end, safety design (Excalidraw diagram + Mermaid)
+- [Day 2 demo runbook](docs/demo-day2.md): pre-flight, run order, expected output, fallbacks
 - [Dependency findings](docs/hotel-reservation-dependencies.md): services, call graph, config, known defects
 - [Dependency map](docs/dependency-map.json): machine-readable, used by the controller and the agents ([diagram](docs/dependency-map.mmd))
 - [Baseline](docs/baseline.md): wrk2 steady-state latency
