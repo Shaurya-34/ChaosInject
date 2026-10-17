@@ -8,6 +8,7 @@ comes from the environment:
   LLM_BASE_URL=<url>                    no default; Groq: https://api.groq.com/openai/v1
   LLM_API_KEY=<key>                     required for a hosted endpoint; never logged, never put in a URL
   LLM_REASONING_EFFORT=low              optional; needed for reasoning models such as Groq's openai/gpt-oss-*
+                                        (none, low, medium, high or default; which ones a model takes is up to the model)
 
 The model may only reword explanation text (see ``enrich_rationales`` / ``enrich_explanations``): rankings,
 severities, scores and every number stay deterministic and the number check rejects invented figures. A
@@ -78,7 +79,7 @@ def make_transport(
 ) -> Callable[[str, str, int, float], str]:
     """Build a ``(system, user, max_tokens, timeout_s) -> text`` transport for ``chat/completions``.
 
-    ``reasoning_effort`` ("low", "medium" or "high") is sent when set. Reasoning models (Groq's
+    ``reasoning_effort`` ("none", "low", "medium", "high" or "default") is sent when set. Reasoning models (Groq's
     ``openai/gpt-oss-*``) spend hidden tokens thinking before they answer; with the small output cap used here
     they can run out and return no text unless the effort is low.
     """
@@ -107,10 +108,13 @@ def make_transport(
         try:
             with httpx.Client(transport=http_transport, timeout=timeout_s, follow_redirects=False) as client:
                 response = client.post(url, headers=headers, json=body)
-                if response.status_code == 400:  # some models or hosts reject JSON mode or reasoning_effort; ask again without
-                    body.pop("response_format")
-                    body.pop("reasoning_effort", None)
-                    response = client.post(url, headers=headers, json=body)
+                # Some models or hosts reject an optional field with HTTP 400. Drop them one at a time, JSON mode
+                # first, so a host that only dislikes response_format still gets reasoning_effort (a reasoning model
+                # without it can spend the whole output cap thinking and return no text).
+                for optional in ("response_format", "reasoning_effort"):
+                    if response.status_code == 400 and optional in body:
+                        body.pop(optional)
+                        response = client.post(url, headers=headers, json=body)
         except httpx.TimeoutException:
             _start_backoff(host, BACKOFF_S)
             raise LLMError("the model request timed out") from None
@@ -156,8 +160,8 @@ def transport_from_env() -> tuple[Callable[[str, str, int, float], str] | None, 
         if not key:
             return None, None, [f"LLM_API_KEY is not set for {_host(base_url)}; rule-based explanations are shown."]
     effort = os.environ.get("LLM_REASONING_EFFORT", "").strip().lower()
-    if effort not in ("", "low", "medium", "high"):
-        return None, None, ["LLM_REASONING_EFFORT must be low, medium or high; rule-based explanations are shown."]
+    if effort not in ("", "none", "low", "medium", "high", "default"):
+        return None, None, ["LLM_REASONING_EFFORT must be none, low, medium, high or default; rule-based explanations are shown."]
     return make_transport(base_url, model, key, reasoning_effort=effort), location, []
 
 
