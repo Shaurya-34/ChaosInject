@@ -112,7 +112,43 @@ def test_reasoning_effort_is_sent_only_when_set_and_dropped_if_the_host_rejects_
     bodies.clear()
     lt.make_transport(GROQ, "openai/gpt-oss-20b", KEY, http_transport=mock(handler), reasoning_effort="low")("s", "u", 10, 5.0)
     assert bodies[0]["reasoning_effort"] == "low"
-    assert len(bodies) == 2 and "reasoning_effort" not in bodies[1]  # retried without it
+    # the host rejected reasoning_effort: JSON mode is dropped first, then the effort, one field at a time
+    assert len(bodies) == 3
+    assert "response_format" not in bodies[1] and bodies[1]["reasoning_effort"] == "low"
+    assert "response_format" not in bodies[2] and "reasoning_effort" not in bodies[2]
+
+
+def test_a_host_that_only_rejects_json_mode_still_gets_the_reasoning_effort():
+    bodies = []
+
+    def handler(request):
+        bodies.append(json.loads(request.content))
+        return httpx.Response(400, json={"error": "response_format unsupported"}) if "response_format" in bodies[-1] \
+            else httpx.Response(200, json=completion("{}"))
+
+    out = lt.make_transport(GROQ, "openai/gpt-oss-20b", KEY, http_transport=mock(handler), reasoning_effort="low")("s", "u", 10, 5.0)
+    assert out == "{}" and len(bodies) == 2
+    assert "response_format" not in bodies[1] and bodies[1]["reasoning_effort"] == "low"
+
+
+def test_a_persistent_400_stops_after_dropping_both_optional_fields():
+    calls = []
+
+    def handler(request):
+        calls.append(json.loads(request.content))
+        return httpx.Response(400, json={"error": "bad"})
+
+    with pytest.raises(lt.LLMError, match="HTTP 400"):
+        lt.make_transport(GROQ, "m", KEY, http_transport=mock(handler), reasoning_effort="low")("s", "u", 10, 5.0)
+    assert len(calls) == 3 and "response_format" not in calls[2] and "reasoning_effort" not in calls[2]
+
+
+@pytest.mark.parametrize("value", ["none", "low", "medium", "high", "default", "LOW", " High "])
+def test_the_reasoning_effort_values_models_take_are_accepted(monkeypatch, value):
+    monkeypatch.setenv("LLM_BASE_URL", GROQ)
+    monkeypatch.setenv("LLM_API_KEY", KEY)
+    monkeypatch.setenv("LLM_REASONING_EFFORT", value)
+    assert lt.transport_from_env()[0] is not None
 
 
 def test_reasoning_effort_comes_from_the_environment_and_is_validated(monkeypatch):
