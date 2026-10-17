@@ -15,14 +15,20 @@ const run={
 const index=[{run_id:run.run_id,file:run.run_id+'.json',experiment:'hotel_geo_stop',target:'hotel-sandbox-geo-1',fault:'container_stop',duration_s:20,stop_reason:run.stop_reason,recovered:false,recovery_s:null,during_error_rate:1,during_p95_ms:null,baseline_p95_ms:42}];
 const proposals={proposals:[{experiment:{name:'hotel-rate-stop',target:'hotel-sandbox-rate-1',fault:'container_stop',duration_s:20},rationale:'container_stop on rate has never been run; 1 working endpoint(s) depend on rate.',expected_impact:'Stops the container for rate. Requests to /hotels depend on it.',affected_endpoints:['/hotels'],times_run:0,score:0.68,rationale_source:'deterministic'}],rejected:[{target:'hotel-sandbox-frontend-1',fault:'container_stop',reason:"target 'hotel-sandbox-frontend-1' is not allowlisted"}],limitations:[]};
 const findings={findings:[{id:'hotel-sandbox-geo-1:container_stop',severity:1,severity_label:'Not recovered / crashed',title:'container_stop on hotel-sandbox-geo-1: not recovered / crashed',target:'hotel-sandbox-geo-1',fault:'container_stop',affected_endpoints:['/hotels'],explanation:'In 1 run(s), the system did not recover after the fault was removed.',suggested_fix:'Run at least two replicas behind service discovery.',run_ids:[run.run_id],explanation_source:'deterministic',evidence:[]}],runs_analyzed:1,runs_without_findings:0,runs_not_evaluated:0,limitations:[]};
+const series=(f:(i:number)=>number)=>Array.from({length:12},(_,i)=>[t0-5+i,f(i)]);
+const availableMetrics={window:{start:t0-5,end:t0+6},step_s:1,available:true,reason:null,series:{
+  controller_latency_ms:series(i=>(i>=8?5:40+i)),fault_active:series(i=>(i>=8&&i<11?1:0)),probe_success:series(i=>(i>=8?0:1)),
+  probe_duration_ms:series(i=>14+i),target_net_tx_pps:series(i=>50-i),target_memory_bytes:series(()=>52428800),target_last_seen_age_s:series(i=>(i>=8?i:0))}};
+const defaultMetrics={status:200,body:{window:{start:t0,end:t0},step_s:1,available:false,reason:'no data in this window (the observability stack was not running)',series:{}}};
 const idle={running:false,experiment:null,pid:null,started_at:null,exit_code:null,run_id:null,fault_active:false,fault:null,stop_requested:false,log_tail:[]};
 
-async function mockChaos(page:Page,active:object,onRun?:()=>{status:number,body:object}){
+async function mockChaos(page:Page,active:object,onRun?:()=>{status:number,body:object},metrics:{status:number,body:object}=defaultMetrics){
   await page.route('**/api/v1/chaos/**',route=>{
     const url=new URL(route.request().url());const path=url.pathname.replace('/api/v1/chaos','');
     const json=(body:object,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
     if(path==='/experiments')return json([{id:'hotel_geo_stop',name:'hotel_geo_stop',target:'hotel-sandbox-geo-1',fault:'container_stop',duration_s:20}]);
     if(path==='/runs')return json(index);
+    if(path==='/runs/'+run.run_id+'/metrics')return json(metrics.body,metrics.status);
     if(path==='/runs/'+run.run_id)return json(run);
     if(path==='/findings')return json(findings);
     if(path.startsWith('/findings/report'))return route.fulfill({status:200,contentType:'text/markdown',body:'# Chaos findings'});
@@ -83,4 +89,40 @@ test('findings are ranked with their runs, fix and a report download',async({pag
   await panel.getByRole('button',{name:run.run_id}).click();await expect(page.getByLabel('Run detail')).toBeVisible();
   const download=page.waitForEvent('download');await panel.getByRole('button',{name:'Download Markdown'}).click();
   expect((await download).suggestedFilename()).toBe('chaos-findings.md');
+});
+
+test('Prometheus charts appear under the run detail with the controller chart still primary',async({page})=>{
+  await mockChaos(page,idle,undefined,{status:200,body:availableMetrics});await openChaosRuns(page);
+  await page.getByRole('row',{name:/hotel_geo_stop/}).click();
+  const detail=page.getByLabel('Run detail');
+  await expect(detail.getByRole('img',{name:/Latency over time/})).toBeVisible();
+  const prom=page.getByLabel('Prometheus metrics');
+  await expect(prom).toBeVisible();
+  for(const title of [/Independent probe vs controller probe/,/Independent probe success/,/Target container network/,/Target container memory/,/Target last seen/])
+    await expect(prom.getByLabel(title)).toBeVisible();
+  await expect(prom.getByTestId('prom-note')).toHaveCount(0);
+});
+
+test('a run without Prometheus data shows a quiet note, not an error',async({page})=>{
+  await mockChaos(page,idle);await openChaosRuns(page);
+  await page.getByRole('row',{name:/hotel_geo_stop/}).click();
+  const prom=page.getByLabel('Prometheus metrics');
+  await expect(prom.getByTestId('prom-note')).toContainText('no data in this window');
+  await expect(prom.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByRole('status').filter({hasText:'Prometheus'})).toHaveCount(0);
+  await expect(page.getByLabel('Run detail').getByRole('img',{name:/Latency over time/})).toBeVisible();
+});
+
+test('when Prometheus is unreachable the run detail still works',async({page})=>{
+  await mockChaos(page,idle,undefined,{status:200,body:{window:{start:t0,end:t0},step_s:1,available:false,reason:'prometheus unreachable',series:{}}});await openChaosRuns(page);
+  await page.getByRole('row',{name:/hotel_geo_stop/}).click();
+  await expect(page.getByTestId('prom-note')).toContainText('prometheus unreachable');
+  await expect(page.getByLabel('Run detail')).toContainText('safety: error rate 100% over 3 probes');
+});
+
+test('a failing metrics request is also only a quiet note',async({page})=>{
+  await mockChaos(page,idle,undefined,{status:500,body:{code:'DEPENDENCY_UNAVAILABLE',message:'x'}});await openChaosRuns(page);
+  await page.getByRole('row',{name:/hotel_geo_stop/}).click();
+  await expect(page.getByTestId('prom-note')).toContainText('could not be loaded');
+  await expect(page.getByLabel('Run detail').getByRole('img',{name:/Latency over time/})).toBeVisible();
 });

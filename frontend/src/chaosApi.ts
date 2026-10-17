@@ -35,6 +35,13 @@ export type Finding={
 };
 export type Findings={findings:Finding[];runs_analyzed:number;runs_without_findings:number;runs_not_evaluated:number;limitations:string[]};
 
+/** GET /runs/{id}/metrics: named Prometheus series over the run window (docs/observability.md). */
+export type RunMetrics={
+  window:{start:number;end:number};step_s:number;
+  series:Record<string,[number|string,number|string][]>;
+  available:boolean;reason:string|null;
+};
+
 export class ChaosApiError extends Error{
   constructor(public status:number,public code:string,message:string){super(message);}
 }
