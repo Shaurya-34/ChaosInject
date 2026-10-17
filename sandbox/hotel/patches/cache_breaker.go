@@ -1,8 +1,8 @@
-package rate
+package PACKAGE
 
-// ChaosInject patch (built only with `prepare.py --fix-rate`).
+// ChaosInject patch (built only with `prepare.py --fix-cache`; PACKAGE is replaced per service).
 //
-// After a memcached error, the rate service skips the cache for a short cooldown and serves
+// After a memcached error, the service skips the cache for a short cooldown and serves
 // from MongoDB directly. Without this, every request during a cache outage waits for the full
 // cache timeout (2 s) before falling back, which is as bad as an outage at the edge.
 
