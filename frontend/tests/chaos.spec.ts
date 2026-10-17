@@ -151,3 +151,55 @@ test('the header uses ChaosInject branding',async({page})=>{
   expect(await page.locator('body').innerText()).not.toMatch(/bosch|kind-bosch|boutique/i);
   await expect(page).toHaveTitle('ChaosInject');
 });
+
+// Colours: no red, orange, yellow or pink anywhere on the rendered page (HTML and SVG), tints included.
+async function warmColours(page:Page):Promise<string[]>{
+  return page.evaluate(()=>{
+    const warm=(c:string)=>{
+      const m=c.match(/rgba?\(([^)]+)\)/);if(!m)return false;
+      const [r,g,b,a=1]=m[1].split(/[ ,\/]+/).filter(Boolean).map(Number);
+      if(a<0.05)return false;
+      const R=r/255,G=g/255,B=b/255,max=Math.max(R,G,B),min=Math.min(R,G,B),l=(max+min)/2,d=max-min;
+      if(d===0)return false;
+      const s=l>0.5?d/(2-max-min):d/(max+min);
+      let h=max===R?((G-B)/d)%6:max===G?(B-R)/d+2:(R-G)/d+4;h=(h*60+360)%360;
+      return s>0.12&&(h<65||h>=320);
+    };
+    const props=['color','backgroundColor','borderTopColor','borderRightColor','borderBottomColor','borderLeftColor','outlineColor','fill','stroke'];
+    const bad=new Set<string>();
+    for(const el of Array.from(document.querySelectorAll('body *'))){
+      const cs=getComputedStyle(el);
+      for(const p of props){const v=(cs as unknown as Record<string,string>)[p];if(v&&warm(v))bad.add(`${el.tagName.toLowerCase()}.${(el.getAttribute('class')||'').split(' ')[0]} ${p}=${v}`);}
+    }
+    return [...bad];
+  });
+}
+
+test('a run with a leftover fault, findings, proposals and charts uses cold colours only',async({page})=>{
+  await mockChaos(page,{...idle,fault_active:true,fault:{target:'hotel-sandbox-geo-1',fault:'container_stop'}},undefined,{status:200,body:availableMetrics});await openChaosRuns(page);
+  await page.getByRole('row',{name:/hotel_geo_stop/}).click();
+  await expect(page.getByLabel('Prometheus metrics').getByLabel(/Target last seen/)).toBeVisible();
+  await expect(page.getByLabel('Findings')).toBeVisible();await expect(page.getByLabel('Suggested experiments')).toBeVisible();
+  expect(await warmColours(page)).toEqual([]);
+});
+
+test('the live run panel uses cold colours only',async({page})=>{
+  await mockChaos(page,{...idle,running:true,experiment:'hotel_geo_stop',pid:1,fault_active:true,fault:{target:'hotel-sandbox-geo-1',fault:'container_stop'},log_tail:['  [baseline] ok   status=200    42.1ms']});await openChaosRuns(page);
+  await expect(page.getByRole('button',{name:'Stop run'})).toBeVisible();
+  expect(await warmColours(page)).toEqual([]);
+});
+
+test('Emergency STOP is a filled violet button and the strongest control',async({page})=>{
+  await mockChaos(page,idle);await openChaosRuns(page);
+  const stop=page.getByRole('button',{name:'Emergency STOP'});
+  await expect(stop).toBeVisible();
+  const style=await stop.evaluate(el=>{const c=getComputedStyle(el);return {bg:c.backgroundColor,color:c.color,weight:c.fontWeight};});
+  expect(style).toEqual({bg:'rgb(95, 61, 196)',color:'rgb(255, 255, 255)',weight:'800'});
+});
+
+test('the colour scanner itself detects warm colours and passes cold ones',async({page})=>{
+  await page.setContent('<div style="background:#b14343">x</div><div style="color:#c57820">y</div><div style="background:#fff8f8">z</div><svg><rect fill="#f6d9d9" width="5" height="5"/></svg>');
+  expect((await warmColours(page)).length).toBeGreaterThanOrEqual(4);
+  await page.setContent('<div style="background:#5f3dc4;color:#fff;border:1px solid #d0bfff">x</div><div style="background:#0b8178">y</div><svg><rect fill="#d0bfff" stroke="#1864ab" width="5" height="5"/></svg>');
+  expect(await warmColours(page)).toEqual([]);
+});
