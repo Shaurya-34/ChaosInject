@@ -32,9 +32,9 @@ With a **hosted** endpoint such as Groq this data goes to a third party. With a 
    ```
 
    (Or export `LLM_API_KEY` / `GROQ_KEY` and `LLM_BASE_URL` in your shell instead; the environment wins over `.env`.)
-3. Pick a chat model from the list your account offers (model names change, so check Groq's current list; `up` tells you if the model is not offered and names some it does). **Tested: `openai/gpt-oss-20b`**: six findings explained in about 1 s, cached afterwards. The number check keeps the rule-based text if a model invents figures.
+3. Pick a chat model from the list your account offers (model names change, so check Groq's current list; `up` tells you if the model is not offered and names some it does). **Tested: `openai/gpt-oss-20b`**: six findings and ten proposals explained in about 2 s, cached afterwards. The number check keeps the rule-based text if a model invents figures.
 
-   `gpt-oss-*` are *reasoning* models: they think before they answer, and with the small output cap used here they can spend all of it thinking and return nothing. `dev.py up` therefore sets `LLM_REASONING_EFFORT=low` for them. For any other reasoning model, export `LLM_REASONING_EFFORT=low` yourself (it is sent to the endpoint as `reasoning_effort`; if the host rejects it, the request is retried without).
+   `gpt-oss-*` are *reasoning* models: they think before they answer, and with the small output cap used here they can spend all of it thinking and return nothing. `dev.py up` therefore sets `LLM_REASONING_EFFORT=low` for them. For any other reasoning model, export `LLM_REASONING_EFFORT=low` yourself (it is sent to the endpoint as `reasoning_effort`; the values a model accepts differ, for example `low`, `medium` or `high` for `gpt-oss-*`, so check your model's documentation, and if the host rejects it the request is retried without it).
 4. Start:
 
    ```bash
@@ -80,4 +80,5 @@ To start the API yourself instead of `dev.py`, set `INTELLIGENCE_REASONING_MODE=
 | `up` stops with "Refusing to read .env" | git does not ignore `.env`; check `.gitignore` |
 | `up` stops with "rejected the API key" | wrong or revoked key |
 | `up` stops with "does not offer the model" | a model id your account does not list |
+| "gave no usable text for N of M", and the log or limitation mentions "no text" | a reasoning model used its whole output budget thinking: set `LLM_REASONING_EFFORT=low` (`dev.py up` does this for `gpt-oss-*`) or pick a non-reasoning model |
 | "gave no usable text for N of M" | rate-limited or unreachable, timed out (20 s), or the model invented a number; try again later or another model |

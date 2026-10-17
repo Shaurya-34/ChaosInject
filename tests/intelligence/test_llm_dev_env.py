@@ -144,3 +144,40 @@ def test_the_llm_doc_leads_with_groq_and_states_the_key_and_data_rules():
         assert needle in doc, needle
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "docs/llm.md" in readme and "optional LLM" in readme
+
+
+def _started_env(monkeypatch, tmp_path, model, preset=None):
+    dev = load_dev()
+    seen = {}
+
+    class FakeProcess:
+        pid = 99
+
+    monkeypatch.setattr(dev, "port_in_use", lambda port: False)
+    monkeypatch.setattr(dev, "wait_for", lambda *a: None)
+    monkeypatch.setattr(dev.subprocess, "Popen", lambda cmd, **kw: seen.setdefault("env", kw["env"]) and FakeProcess())
+    monkeypatch.setattr(dev, "STATE", tmp_path / "api.json")
+    monkeypatch.setattr(dev, "LOG", tmp_path / "api.log")
+    monkeypatch.delenv("LLM_REASONING_EFFORT", raising=False)
+    if preset:
+        monkeypatch.setenv("LLM_REASONING_EFFORT", preset)
+    dev.start_api(False, {"model": model, "base_url": GROQ, "key": KEY, "key_source": ".env"})
+    return seen["env"], (tmp_path / "api.json").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("model", ["openai/gpt-oss-20b", "openai/gpt-oss-120b"])
+def test_gpt_oss_models_get_a_low_reasoning_effort_by_default(monkeypatch, tmp_path, model):
+    env, state = _started_env(monkeypatch, tmp_path, model)
+    assert env["LLM_REASONING_EFFORT"] == "low"
+    assert "effort" not in state and KEY not in state
+
+
+def test_a_reasoning_effort_the_user_set_wins(monkeypatch, tmp_path):
+    env, _ = _started_env(monkeypatch, tmp_path, "openai/gpt-oss-20b", preset="high")
+    assert env["LLM_REASONING_EFFORT"] == "high"
+
+
+@pytest.mark.parametrize("model", ["llama-3.3-70b-versatile", "qwen/qwen3.8-27b"])
+def test_other_models_get_no_reasoning_effort_unless_the_user_sets_one(monkeypatch, tmp_path, model):
+    env, _ = _started_env(monkeypatch, tmp_path, model)
+    assert "LLM_REASONING_EFFORT" not in env
