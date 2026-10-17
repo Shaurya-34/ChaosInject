@@ -33,6 +33,7 @@ SEVERITY_LABELS = {
     3: "Latency amplification",
     4: "Degraded but tolerated",
 }
+NON_CRITICAL_OUTAGE_LABEL = "Full outage of a non-critical path"
 CORE_PATH = "/hotels"
 
 
@@ -95,24 +96,24 @@ def _error_rate(run: Mapping[str, Any], phase: str) -> float | None:
     return ((run.get("summary") or {}).get(phase) or {}).get("error_rate")
 
 
-def _classify(run: Mapping[str, Any], critical_path: bool, cfg: MonitorConfig) -> tuple[int, str] | None:
-    """(severity, one-line reason) for one run, or None when the run shows no weakness."""
+def _classify(run: Mapping[str, Any], critical_path: bool, cfg: MonitorConfig) -> tuple[int, str, str] | None:
+    """(severity, one-line reason, label) for one run, or None when the run shows no weakness."""
     if run.get("refused"):
         return None  # never injected: nothing was learned about the system
     err = _error_rate(run, "during")
     base, fault_p95 = _p95(run, "baseline"), _p95(run, "during")
     if run.get("recovered") is False:
-        return 1, "the system did not recover after the fault was removed"
+        return 1, "the system did not recover after the fault was removed", SEVERITY_LABELS[1]
     if err is not None and err >= cfg.outage_error_rate:
         if critical_path:
-            return 2, f"{round(err * 100)}% of probes failed during the fault on a critical path"
-        return 3, f"{round(err * 100)}% of probes failed during the fault (not a critical path)"
+            return 2, f"{round(err * 100)}% of probes failed during the fault on a critical path", SEVERITY_LABELS[2]
+        return 3, f"{round(err * 100)}% of probes failed during the fault (not a critical path)", NON_CRITICAL_OUTAGE_LABEL
     if base and fault_p95 and fault_p95 / base >= cfg.amplification_ratio and fault_p95 - base >= cfg.amplification_min_ms:
-        return 3, f"p95 latency rose from {base:g} ms to {fault_p95:g} ms ({fault_p95 / base:.1f}x)"
+        return 3, f"p95 latency rose from {base:g} ms to {fault_p95:g} ms ({fault_p95 / base:.1f}x)", SEVERITY_LABELS[3]
     safety = str(run.get("stop_reason") or "").startswith(("safety", "kill switch", "hard timeout"))
     slowed = bool(base and fault_p95 and fault_p95 / base >= cfg.degraded_ratio)
     if (err or 0) > 0 or slowed or safety:
-        return 4, "the system degraded during the fault but recovered"
+        return 4, "the system degraded during the fault but recovered", SEVERITY_LABELS[4]
     return None
 
 
@@ -141,7 +142,7 @@ def analyze(
     """Return ``{"findings": [...ranked...], "runs_analyzed": n, "runs_without_findings": n, "runs_not_evaluated": n}``."""
 
     cfg = config or MonitorConfig()
-    groups: dict[tuple[str, str], list[tuple[int, str, Mapping[str, Any]]]] = {}
+    groups: dict[tuple[str, str], list[tuple[int, str, str, Mapping[str, Any]]]] = {}
     clean = skipped = 0
     for run in runs:
         exp = run.get("experiment") or {}
@@ -157,19 +158,19 @@ def analyze(
         elif verdict is None:
             clean += 1
         else:
-            groups.setdefault((target, fault), []).append((verdict[0], verdict[1], run))
+            groups.setdefault((target, fault), []).append((verdict[0], verdict[1], verdict[2], run))
     findings = []
     for (target, fault), items in groups.items():
-        worst = min(sev for sev, _, _ in items)
-        worst_reason = next(reason for sev, reason, _ in items if sev == worst)
-        used = [r for _, _, r in items]
+        worst = min(sev for sev, _, _, _ in items)
+        worst_reason, worst_label = next((reason, label) for sev, reason, label, _ in items if sev == worst)
+        used = [r for _, _, _, r in items]
         node = node_for_target(target) or target
         endpoints = affected_endpoints(dep_map, node)
         findings.append({
             "id": f"{target}:{fault}",
             "severity": worst,
-            "severity_label": SEVERITY_LABELS[worst],
-            "title": f"{fault} on {target}: {SEVERITY_LABELS[worst].lower()}",
+            "severity_label": worst_label,
+            "title": f"{fault} on {target}: {worst_label.lower()}",
             "target": target,
             "fault": fault,
             "affected_endpoints": endpoints,
