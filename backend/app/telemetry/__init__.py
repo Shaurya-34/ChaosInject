@@ -1,6 +1,6 @@
 """Telemetry workstream (Navya).
 
-Measurement, live state, safe plan estimation and deterministic scoring for
+Measurement, live state and deterministic scoring for
 Bosch Resilience AI.
 
 What this package guarantees to the rest of the system:
@@ -15,8 +15,6 @@ What this package guarantees to the rest of the system:
   aggregate.
 * **Recovery means business recovery.** Restored replicas alone do not qualify;
   critical transactions must succeed for a sustained interval.
-* **The estimator never executes a candidate query.** ``EXPLAIN (FORMAT JSON)``
-  only, no ANALYZE, with statement text and parameters discarded after use.
 * **The learning channel retains nothing.** Bounded in RAM, no persistence, with
   drop counters reported.
 * **Telemetry observes and never mutates.** No function in this package changes
@@ -37,7 +35,6 @@ from ._contracts import (  # noqa: F401
     Outcome,
     Phase,
     PhaseSummary,
-    PlanEstimate,
     ReadyState,
     RecoveryStatus,
     ResilienceScore,
@@ -49,7 +46,6 @@ from ._contracts import (  # noqa: F401
 )
 from .config import DEFAULT_CONFIG, SCHEMA_VERSION, SCORING_VERSION, TelemetryConfig
 from .learning import LearningChannel
-from .plan_estimator import PlanEstimator, PlanSource, PlanUnavailable
 from .port import LiveTelemetryPort, TelemetryPort
 from .recovery import FrozenBaseline, RecoveryDetector, RecoveryOutcome
 from .scoring import ResilienceScorer, SafetyChecks, ScoringInputs, aggregate
@@ -75,10 +71,6 @@ __all__ = [
     "Outcome",
     "Phase",
     "PhaseSummary",
-    "PlanEstimate",
-    "PlanEstimator",
-    "PlanSource",
-    "PlanUnavailable",
     "ReadyState",
     "RecoveryDetector",
     "RecoveryOutcome",

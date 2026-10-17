@@ -1,9 +1,7 @@
 """Fake adapters and SYNTHETIC inputs for intelligence tests and fixtures.
 
-Nothing here is a measurement. The lab schema is a placeholder until Ananya
-publishes the real synthetic lab schema; the topology mirrors the vendored
-Online Boutique call graph but is not discovered from a cluster; plan estimates
-are invented by a simple rule set, not by PostgreSQL EXPLAIN.
+Nothing here is a measurement. The topology mirrors the vendored Online
+Boutique call graph but is not discovered from a cluster.
 """
 
 from __future__ import annotations
@@ -20,7 +18,6 @@ from app.contracts import (
     LoadProfile,
     OperationAggregate,
     PhaseSummary,
-    PlanEstimate,
     Readiness,
     RunSummary,
     ScoreComponents,
@@ -29,8 +26,6 @@ from app.contracts import (
     TopologyNode,
     TopologySnapshot,
 )
-
-from .sql_ast import SqlAllowlist, validate_sql
 
 SANDBOX_ID = "fixture-sandbox"
 
@@ -41,105 +36,6 @@ def _id(prefix: str) -> str:
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
-
-
-LAB_ALLOWLIST_DATA: dict[str, Any] = {
-    "_note": "SYNTHETIC placeholder schema; replace with Ananya's lab schema metadata.",
-    "default_schema": "lab",
-    "tables": {
-        "lab.products": {
-            "columns": ["id", "sku", "name", "category", "price_cents", "description", "created_at"],
-            "indexed_columns": ["id", "sku", "category"],
-            "primary_key": "id",
-        },
-        "lab.stock_levels": {
-            "columns": ["product_id", "warehouse_id", "quantity", "updated_at"],
-            "indexed_columns": ["product_id", "warehouse_id"],
-            "primary_key": None,
-        },
-        "lab.warehouses": {"columns": ["id", "code", "region"], "indexed_columns": ["id"], "primary_key": "id"},
-    },
-}
-LAB_TABLE_ROWS = {"lab.products": 10_000, "lab.stock_levels": 30_000, "lab.warehouses": 10}
-LAB_ROW_WIDTH = {"lab.products": 180, "lab.stock_levels": 32, "lab.warehouses": 40}
-
-
-def lab_allowlist() -> SqlAllowlist:
-    return SqlAllowlist.from_dict(LAB_ALLOWLIST_DATA)
-
-
-class FakePlanEstimator:
-    """Rule-based stand-in for Navya's EXPLAIN adapter. Labelled ``plan_source=fixture``."""
-
-    def __init__(
-        self,
-        allowlist: SqlAllowlist,
-        table_rows: dict[str, int] | None = None,
-        *,
-        stats_quality: str = "fixture",
-        fail: bool = False,
-        unavailable: bool = False,
-    ):
-        self.allowlist = allowlist
-        self.table_rows = dict(table_rows or LAB_TABLE_ROWS)
-        self.stats_quality = stats_quality
-        self.fail = fail
-        self.unavailable = unavailable
-        self.calls = 0
-
-    async def estimate(self, validated_sql: str, parameters: Sequence[Any], target_id: str) -> PlanEstimate:
-        self.calls += 1
-        if self.fail:
-            raise RuntimeError("fake estimator outage")
-        if self.unavailable:
-            return PlanEstimate(
-                request_id=_id("req"), captured_at=_now(), plan_source="unavailable", estimated_rows=None,
-                estimated_width_bytes=None, estimated_output_bytes=None, planner_cost=None, node_categories=[],
-                stats_quality="unknown", uncertainty=["fixture: EXPLAIN unavailable"],
-            )
-        v = validate_sql(validated_sql, list(parameters), self.allowlist)
-        s = v.structure
-        base = max(self.table_rows.get(t, 1000) for t in s.tables)
-        if s.aggregate_only:
-            rows = 1.0
-        elif s.filters_on_indexed:
-            rows = float(min(base, 10))
-        elif s.has_where:
-            rows = base * 0.33
-        else:
-            rows = float(base)
-        if s.has_group_by:
-            rows = min(rows, 100.0)
-        if v.limit_constant is not None:
-            rows = min(rows, float(v.limit_constant))
-        elif s.limit_is_param:
-            rows = min(rows, base * 0.1)
-        width = float(sum(LAB_ROW_WIDTH.get(t, 64) for t in s.tables)) if s.select_star else 16.0 + 24.0 * s.n_projected_columns
-        scanned = 10.0 if s.filters_on_indexed else float(base)
-        cats = ["index_scan" if s.filters_on_indexed else "seq_scan"]
-        cost = scanned * 0.0125
-        if s.has_order_by and not s.order_by_indexed:
-            cats.append("sort")
-            cost += scanned * math.log2(max(2.0, scanned)) * 0.02
-        if s.n_aggregates:
-            cats.append("aggregate")
-        if s.n_joins:
-            cats.append("hash_join")
-            cost *= 1.5
-        if s.has_limit:
-            cats.append("limit")
-        return PlanEstimate(
-            request_id=_id("req"),
-            captured_at=_now(),
-            plan_source="fixture",
-            estimated_rows=int(rows),
-            estimated_width_bytes=int(width),
-            estimated_output_bytes=int(rows * width),
-            planner_cost=round(cost, 2),
-            node_categories=cats,
-            stats_quality=self.stats_quality,  # type: ignore[arg-type]
-            uncertainty=["fixture estimator: synthetic numbers, not PostgreSQL EXPLAIN"],
-        )
 
 
 # ---------------------------------------------------------------------------

@@ -76,22 +76,6 @@ class RecoveryConfig:
 
 
 @dataclass(frozen=True)
-class PlanEstimatorConfig:
-    """Safe PostgreSQL plan estimation."""
-
-    # EXPLAIN is planning-only, but planning can still evaluate expressions, so
-    # the server-side timeout stays short and the role stays restricted.
-    statement_timeout_ms: int = 1_500
-    connect_timeout_seconds: float = 3.0
-    application_name: str = "bosch-resilience-ai-planestimator"
-    # DOCUMENTED ASSUMPTION: wire/serialisation overhead above raw row width.
-    # Measured bytes on the wire will differ; recorded as an uncertainty entry.
-    serialization_overhead_factor: float = 1.15
-    # Statistics older than this are reported as stale, which widens uncertainty.
-    stats_stale_after_hours: float = 24.0
-
-
-@dataclass(frozen=True)
 class LearningChannelConfig:
     """Bounded, RAM-only channel feeding Gautam's streaming learner."""
 
@@ -138,7 +122,6 @@ class TelemetryConfig:
     sampling: SamplingConfig = field(default_factory=SamplingConfig)
     state: StateConfig = field(default_factory=StateConfig)
     recovery: RecoveryConfig = field(default_factory=RecoveryConfig)
-    plan: PlanEstimatorConfig = field(default_factory=PlanEstimatorConfig)
     learning: LearningChannelConfig = field(default_factory=LearningChannelConfig)
     workload: WorkloadConfig = field(default_factory=WorkloadConfig)
 

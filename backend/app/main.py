@@ -19,12 +19,6 @@ class ApproveRequest(Contract):
     proposal_hash: Annotated[str, Field(min_length=64, max_length=64)]
 class StartRequest(Contract):
     approval_id: str
-class QueryRequest(Contract):
-    sql: Annotated[str, Field(min_length=1, max_length=16000, repr=False)]
-    parameters: dict[str, str | int | float | bool | None] = Field(default_factory=dict, repr=False)
-    target_id: str = "inventory-lab"
-class ExecuteRequest(Contract):
-    token: Annotated[str, Field(min_length=1, max_length=512, repr=False)]
 
 def create_app(settings: Settings | None = None, ports: Ports | None = None):
     settings = settings or Settings.environment()
@@ -70,9 +64,6 @@ def create_app(settings: Settings | None = None, ports: Ports | None = None):
     async def actor(): return "local-operator"
     def mutation_guard():
         if settings.mode in ("replay", "demo") or (settings.mode == "fixture" and not settings.fake_runtime_enabled): raise PortError("MUTATIONS_DISABLED")
-    def execution_guard():
-        mutation_guard()
-        if not ports.sql_execution_ready or settings.mode != "live": raise PortError("SQL_UNAVAILABLE")
     def provenance(value):
         if hasattr(value, "source") and value.source != ("live" if settings.mode == "demo" else settings.mode): raise PortError("DEPENDENCY_UNAVAILABLE", 503)
         return value
@@ -83,7 +74,7 @@ def create_app(settings: Settings | None = None, ports: Ports | None = None):
     async def health():
         demo_mode = settings.mode == "demo"
         target_ok = (await ports.telemetry.probe())["status"] == "healthy" if demo_mode else True
-        return Health(source="live" if demo_mode else settings.mode, status="ready" if target_ok else "degraded", dependencies={"platform": True, "telemetry": target_ok, "intelligence": True, "runtime_safety": ports.runtime_safety_ready}, sandbox_id=settings.sandbox_id, context=settings.context, namespace=settings.namespace, mutations_enabled=settings.mode == "live" or settings.fake_runtime_enabled, sql_execution_enabled=ports.sql_execution_ready and settings.mode == "live", limitations=["Local HTTP prevention and deterministic SQL analysis; no cluster faults, SQL executor or external LLM. Learner starts cold and has no SQL outcomes to train on."] if demo_mode else [] if settings.mode == "live" else ["Synthetic fixtures; no enrolled cluster or live evidence"] if settings.mode == "fixture" else ["Recorded data only; no execution"])
+        return Health(source="live" if demo_mode else settings.mode, status="ready" if target_ok else "degraded", dependencies={"platform": True, "telemetry": target_ok, "intelligence": True, "runtime_safety": ports.runtime_safety_ready}, sandbox_id=settings.sandbox_id, context=settings.context, namespace=settings.namespace, mutations_enabled=settings.mode == "live" or settings.fake_runtime_enabled, limitations=["Local HTTP prevention only; no cluster faults or external LLM. Learner starts cold."] if demo_mode else [] if settings.mode == "live" else ["Synthetic fixtures; no enrolled cluster or live evidence"] if settings.mode == "fixture" else ["Recorded data only; no execution"])
     @app.get("/api/v1/topology", response_model=TopologySnapshot)
     async def topology(): return provenance(await ports.platform.get_topology(settings.sandbox_id))
     @app.get("/api/v1/state", response_model=SystemStateSnapshot)
@@ -126,31 +117,6 @@ def create_app(settings: Settings | None = None, ports: Ports | None = None):
         r = await ports.runtime.reconcile(settings.sandbox_id)
         if r.cleanup_status not in ("verified", "not_applicable") or r.recovery_status != "verified" or r.unresolved_run_ids: raise PortError("CONFLICT")
         return provenance(await ports.runtime.reset(settings.sandbox_id, who))
-    @app.post("/api/v1/sql/analyze", response_model=QueryDecision)
-    async def analyze_query(body: QueryRequest, who=Depends(actor)):
-        if settings.mode == "replay": raise PortError("REPLAY_READ_ONLY")
-        try:
-            d = provenance(await ports.intelligence.analyze_query(body, await state(), ports.estimator))
-            if d.decision == "BLOCK": d = d.model_copy(update={"intent_id": None})
-            elif ports.sql_execution_ready and settings.mode == "live":
-                intent = await ports.runtime.stage_query(body, d, who)
-                d = d.model_copy(update={"intent_id": intent.intent_id})
-            else: d = d.model_copy(update={"intent_id": None})
-            return d
-        finally:
-            body.sql = ""; body.parameters.clear()
-    @app.post("/api/v1/sql/intents/{intent_id}/approve", response_model=SingleUseToken)
-    async def approve_query(intent_id: str, who=Depends(actor)):
-        execution_guard()
-        return await ports.runtime.approve_query(intent_id, who)
-    @app.post("/api/v1/sql/execute-approved", status_code=202, response_model=BoundedReadHandle)
-    async def execute_query(body: ExecuteRequest, idempotency_key: str | None = Header(None), who=Depends(actor)):
-        execution_guard()
-        return provenance(await ports.runtime.execute_query(body.token, who, key(idempotency_key)))
-    @app.post("/api/v1/sql/jobs/{job_id}/cancel", status_code=202, response_model=BoundedReadHandle)
-    async def cancel_query(job_id: str, who=Depends(actor)):
-        execution_guard()
-        return provenance(await ports.runtime.cancel_query(job_id, who))
     @app.get("/api/v1/learning/status", response_model=LearningStatus)
     async def learning_status(): return provenance(await ports.intelligence.get_learning_status())
     @app.get("/api/v1/runs/{run_id}/analysis", response_model=AnalysisResult)

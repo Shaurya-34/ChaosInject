@@ -108,17 +108,6 @@ class SystemStateSnapshot(Observed):
         return self
 
 
-class PlanEstimate(Contract):
-    request_id: str
-    captured_at: AwareDatetime
-    plan_source: Literal["explain_json", "fixture", "unavailable"]
-    estimated_rows: Count | None
-    estimated_width_bytes: Count | None
-    estimated_output_bytes: Count | None
-    planner_cost: Positive | None
-    node_categories: list[str]
-    stats_quality: Literal["fresh", "stale", "unknown", "fixture"]
-    uncertainty: list[str]
 
 
 class Prediction(Contract):
@@ -130,19 +119,6 @@ class Prediction(Contract):
     quality_note: str
 
 
-class QueryDecision(Observed):
-    decision_id: str
-    request_id: str
-    decision: Literal["ALLOW", "WARN", "BLOCK"]
-    rule_ids: list[str]
-    policy_version: str
-    state_id: str
-    plan_estimate: PlanEstimate | None
-    prediction: Prediction | None
-    reasons: list[str]
-    recommendations: list[str]
-    executed: Literal[False] = False
-    intent_id: str | None = None
 
 
 class FaultParameters(Contract):
@@ -404,28 +380,10 @@ class CleanupSummary(Observed):
     unresolved_run_ids: list[str]
 
 
-class IntentHandle(Contract):
-    intent_id: str
-    decision_id: str
-    actor_ref: str
-    target_id: str
-    expires_at: AwareDatetime
 
 
-class SingleUseToken(Contract):
-    token: str
-    expires_at: AwareDatetime
 
 
-class BoundedReadHandle(Observed):
-    job_id: str
-    state: Literal["QUEUED", "RUNNING", "COMPLETED", "CANCELLED", "TRUNCATED", "FAILED"]
-    row_budget: Count
-    byte_budget: Count
-    time_budget_seconds: Positive
-    output_rows: Count | None
-    output_bytes: Count | None
-    duration_ms: Positive | None
 
 
 class CatalogEntry(Contract):
@@ -463,6 +421,5 @@ class Health(Observed):
     context: str
     namespace: str
     mutations_enabled: bool
-    sql_execution_enabled: bool
     adaptive_rollback_enabled: Literal[False] = False
     limitations: list[str]

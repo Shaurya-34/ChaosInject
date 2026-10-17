@@ -1,4 +1,4 @@
-"""Probe, phases, state, recovery, plan estimation, learning, summary, redaction."""
+"""Probe, phases, state, recovery, learning, summary, redaction."""
 
 from __future__ import annotations
 
@@ -33,10 +33,6 @@ from backend.app.telemetry.fakes import (
 )
 from backend.app.telemetry.learning import LearningChannel
 from backend.app.telemetry.phases import MonoAnchor, PhaseRecorder
-from backend.app.telemetry.plan_estimator import (
-    PlanEstimator,
-    StaticPlanSource,
-)
 from backend.app.telemetry.probe import ProbeRunner
 from backend.app.telemetry.recovery import FrozenBaseline, RecoveryDetector
 from backend.app.telemetry.redaction import (
@@ -396,109 +392,6 @@ class RecoveryTests(unittest.TestCase):
     def test_baseline_is_frozen(self):
         with self.assertRaises(Exception):
             BASE.success_rate = 0.5  # type: ignore[misc]
-
-
-# ---------------------------------------------------------------- plan estimator
-
-
-def plan(root):
-    return [{"Plan": root}]
-
-
-class PlanEstimatorTests(unittest.TestCase):
-    SQL = "SELECT secret_col FROM private_table WHERE id = $1"
-
-    def _estimate(self, source):
-        est = PlanEstimator(source, result_source=Source.FIXTURE)
-        return run(est.estimate(self.SQL, [12345], "target_1"))
-
-    def test_aggregate_over_big_scan_is_not_cheap(self):
-        source = StaticPlanSource(
-            plan(
-                {
-                    "Node Type": "Aggregate",
-                    "Plan Rows": 1,
-                    "Plan Width": 8,
-                    "Total Cost": 90000.0,
-                    "Plans": [{"Node Type": "Seq Scan", "Plan Rows": 5_000_000, "Plan Width": 8}],
-                }
-            )
-        )
-        e = self._estimate(source)
-        self.assertEqual(e.estimated_rows, 1)
-        self.assertEqual(e.max_node_estimated_rows, 5_000_000)
-        self.assertTrue(any("scanned" in u or "aggregate" in u for u in e.uncertainty))
-
-    def test_limit_over_sort_is_flagged(self):
-        source = StaticPlanSource(
-            plan(
-                {
-                    "Node Type": "Limit",
-                    "Plan Rows": 10,
-                    "Plan Width": 40,
-                    "Total Cost": 5000.0,
-                    "Plans": [
-                        {
-                            "Node Type": "Sort",
-                            "Plan Rows": 2_000_000,
-                            "Plan Width": 40,
-                            "Plans": [{"Node Type": "Seq Scan", "Plan Rows": 2_000_000}],
-                        }
-                    ],
-                }
-            )
-        )
-        e = self._estimate(source)
-        self.assertTrue(any("LIMIT" in u for u in e.uncertainty))
-        self.assertEqual(e.max_node_estimated_rows, 2_000_000)
-
-    def test_cost_is_labelled_not_a_duration(self):
-        source = StaticPlanSource(plan({"Node Type": "Seq Scan", "Plan Rows": 5, "Plan Width": 4, "Total Cost": 1.5}))
-        e = self._estimate(source)
-        self.assertTrue(any("not a duration" in u for u in e.uncertainty))
-        self.assertEqual(e.planner_cost, 1.5)
-
-    def test_output_bytes_documents_overhead(self):
-        source = StaticPlanSource(plan({"Node Type": "Seq Scan", "Plan Rows": 100, "Plan Width": 10, "Total Cost": 1.0}))
-        e = self._estimate(source)
-        self.assertAlmostEqual(e.estimated_output_bytes, 100 * 10 * 1.15, places=1)
-        self.assertTrue(any("overhead" in u for u in e.uncertainty))
-
-    def test_unavailable_planner_is_explicit_unknown_not_zero(self):
-        e = self._estimate(StaticPlanSource(raise_unavailable="statement_timeout"))
-        self.assertEqual(e.plan_source, "unavailable")
-        self.assertIsNone(e.estimated_rows)
-        self.assertIsNone(e.planner_cost)
-
-    def test_malformed_plan_is_unavailable(self):
-        e = self._estimate(StaticPlanSource([{"Nope": 1}]))
-        self.assertEqual(e.plan_source, "unavailable")
-
-    def test_stale_stats_widen_uncertainty(self):
-        source = StaticPlanSource(
-            plan({"Node Type": "Seq Scan", "Plan Rows": 5, "Plan Width": 4, "Total Cost": 1.0}),
-            stats_hours=100.0,
-        )
-        e = self._estimate(source)
-        self.assertEqual(e.stats_quality, "stale")
-
-    def test_estimate_contains_no_sql_or_parameters(self):
-        source = StaticPlanSource(
-            plan({"Node Type": "Index Scan", "Plan Rows": 1, "Plan Width": 4, "Total Cost": 1.0,
-                  "Filter": "(secret_col = 12345)", "Index Cond": "(id = 12345)"})
-        )
-        dumped = self._estimate(source).model_dump_json()
-        for leaked in ("secret_col", "private_table", "12345", "Filter", "Index Cond"):
-            self.assertNotIn(leaked, dumped)
-
-    def test_driver_failure_text_is_not_propagated(self):
-        class Leaky(StaticPlanSource):
-            async def explain_json(self, sql, parameters, *, timeout_ms):
-                raise RuntimeError(f"syntax error near: {sql}")
-
-        e = self._estimate(Leaky())
-        self.assertNotIn("secret_col", e.model_dump_json())
-        self.assertEqual(e.estimation_error, "RuntimeError")
 
 
 # ---------------------------------------------------------------- learning
