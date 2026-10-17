@@ -69,18 +69,19 @@ export function ChaosRuns({source}:{source?:string}){
   const refreshActive=()=>{chaos<ActiveRun>('/active').then(setActive).catch(()=>{});};
   const start=(id:string)=>call(`/experiments/${encodeURIComponent(id)}/run`,'POST',()=>{wasRunning.current=true;refreshActive();});
   const running=!!active?.running;
+  const execOff=execDisabled||active?.execution_enabled===false;
   const leftover=!!active&&!active.running&&active.fault_active;
 
   return <div className="chaos">
     <p className="muted">Saved results from <code>results/</code> via <code>/api/v1/chaos</code>. {source==='fixture'?'The API is in fixture mode, so any runs shown here may be synthetic examples. ':''}Starting, stopping and recovering need <code>CHAOS_EXECUTION_ENABLED=true</code> on the API.</p>
     {message&&<div role="status" className="notice">{message}<button aria-label="Dismiss message" onClick={()=>setMessage('')}>×</button></div>}
 
-    {leftover&&<section className="chaos-banner" role="alert"><AlertTriangle size={20}/><div><strong>A fault is still in place</strong><p>No controller is running, but a fault on <code>{active!.fault?.target??'a target'}</code> was not restored.</p></div><button className="primary" disabled={busy||execDisabled} onClick={()=>call('/recover','POST',refreshActive)}><RotateCcw size={16}/> Recover</button></section>}
+    {leftover&&<section className="chaos-banner" role="alert"><AlertTriangle size={20}/><div><strong>A fault is still in place</strong><p>No controller is running, but a fault on <code>{active!.fault?.target??'a target'}</code> was not restored.</p></div><button className="primary" disabled={busy||execOff} title={execOff?'Execution disabled':'Restore the leftover fault'} onClick={()=>call('/recover','POST',refreshActive)}><RotateCcw size={16}/> Recover</button></section>}
 
     {running&&<section className="panel chaos-live" aria-live="polite"><div className="panel-title"><h2>Run in progress · {active!.experiment}</h2><span className="small-tag">{phaseFromLog(active!.log_tail).toUpperCase()}</span></div>
       <dl><dt>Target</dt><dd>{active!.fault?.target??'none yet (baseline)'}</dd><dt>Fault active</dt><dd>{active!.fault_active?'yes':'no'}</dd><dt>Controller pid</dt><dd>{active!.pid??'starting'}</dd><dt>Stop requested</dt><dd>{active!.stop_requested?'yes':'no'}</dd></dl>
       <pre className="chaos-log" aria-label="Controller log">{active!.log_tail.slice(-8).join('\n')}</pre>
-      <button className="chaos-stop" disabled={busy||active!.stop_requested} onClick={()=>call('/active/stop','POST')}><OctagonX size={17}/> Stop run</button>
+      <button className="chaos-stop" disabled={busy||active!.stop_requested||execOff} title={execOff?'Execution disabled':'Stop the run and restore the fault'} onClick={()=>call('/active/stop','POST')}><OctagonX size={17}/> Stop run</button>
     </section>}
 
     <div className="grid">
@@ -89,9 +90,9 @@ export function ChaosRuns({source}:{source?:string}){
         {experiments.map(x=><div className="catalog" key={x.id}>
           <span className="catalog-id">{x.fault??'?'}</span>
           <div><strong>{x.id}</strong><p>{x.target} · {x.duration_s}s</p></div>
-          <button className="primary" disabled={busy||running||execDisabled} title={execDisabled?'Execution disabled':running?'A run is active':'Run this experiment'} onClick={()=>start(x.id)}><Play size={15}/> Run</button>
+          <button className="primary" disabled={busy||running||execOff} title={execOff?'Execution disabled':running?'A run is active':'Run this experiment'} onClick={()=>start(x.id)}><Play size={15}/> Run</button>
         </div>)}
-        {execDisabled&&<p className="muted">Execution disabled: the Run buttons stay grey until the API is started with CHAOS_EXECUTION_ENABLED=true.</p>}
+        {execOff&&<p className="muted">Execution disabled: Run, Stop and Recover stay grey until the API is started with CHAOS_EXECUTION_ENABLED=true.</p>}
       </section>
       <section className="panel"><h2>Runs</h2>
         {runs.length===0?<p className="empty">No saved runs yet.</p>:<div className="chaos-table-wrap"><table className="chaos-table"><thead><tr><th>Experiment</th><th>Fault</th><th>Target</th><th>Error rate</th><th>p95 (base → fault)</th><th>Recovery</th><th>Stop reason</th></tr></thead><tbody>
@@ -174,7 +175,7 @@ function FindingsPanel({data,onOpen,onError}:{data:Findings;onOpen:(id:string)=>
     {data.findings.map(f=><article className={'finding-card sev'+f.severity} key={f.id}>
       <div><span className={'small-tag sev'+f.severity}>{f.severity_label.toUpperCase()}</span> <strong>{f.title}</strong></div>
       <p>{f.explanation}</p>
-      <p className="muted">Affects: {f.affected_endpoints.join(', ')||'no working endpoint'} · Runs: {f.run_ids.map(id=><button key={id} className="link" onClick={()=>onOpen(id)}>{id}</button>)}</p>
+      <p className="muted">Affects: {f.affected_endpoints.join(', ')||'no working endpoint'} · Runs: {f.run_ids.map((id,i)=><React.Fragment key={id}>{i>0&&', '}<button className="link" onClick={()=>onOpen(id)}>{id}</button></React.Fragment>)}</p>
       <p><strong>Suggested fix.</strong> {f.suggested_fix}</p>
     </article>)}
   </section>;

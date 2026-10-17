@@ -14,7 +14,7 @@ const run={
 };
 const index=[{run_id:run.run_id,file:run.run_id+'.json',experiment:'hotel_geo_stop',target:'hotel-sandbox-geo-1',fault:'container_stop',duration_s:20,stop_reason:run.stop_reason,recovered:false,recovery_s:null,during_error_rate:1,during_p95_ms:null,baseline_p95_ms:42}];
 const proposals={proposals:[{experiment:{name:'hotel-rate-stop',target:'hotel-sandbox-rate-1',fault:'container_stop',duration_s:20},rationale:'container_stop on rate has never been run; 1 working endpoint(s) depend on rate.',expected_impact:'Stops the container for rate. Requests to /hotels depend on it.',affected_endpoints:['/hotels'],times_run:0,score:0.68,rationale_source:'deterministic'}],rejected:[{target:'hotel-sandbox-frontend-1',fault:'container_stop',reason:"target 'hotel-sandbox-frontend-1' is not allowlisted"}],limitations:[]};
-const findings={findings:[{id:'hotel-sandbox-geo-1:container_stop',severity:1,severity_label:'Not recovered / crashed',title:'container_stop on hotel-sandbox-geo-1: not recovered / crashed',target:'hotel-sandbox-geo-1',fault:'container_stop',affected_endpoints:['/hotels'],explanation:'In 1 run(s), the system did not recover after the fault was removed.',suggested_fix:'Run at least two replicas behind service discovery.',run_ids:[run.run_id],explanation_source:'deterministic',evidence:[]}],runs_analyzed:1,runs_without_findings:0,runs_not_evaluated:0,limitations:[]};
+const findings={findings:[{id:'hotel-sandbox-geo-1:container_stop',severity:1,severity_label:'Not recovered / crashed',title:'container_stop on hotel-sandbox-geo-1: not recovered / crashed',target:'hotel-sandbox-geo-1',fault:'container_stop',affected_endpoints:['/hotels'],explanation:'In 1 run(s), the system did not recover after the fault was removed.',suggested_fix:'Run at least two replicas behind service discovery.',run_ids:[run.run_id,'20261017-000002-hotel_geo_stop-def456'],explanation_source:'deterministic',evidence:[]}],runs_analyzed:1,runs_without_findings:0,runs_not_evaluated:0,limitations:[]};
 const series=(f:(i:number)=>number)=>Array.from({length:12},(_,i)=>[t0-5+i,f(i)]);
 const availableMetrics={window:{start:t0-5,end:t0+6},step_s:1,available:true,reason:null,series:{
   controller_latency_ms:series(i=>(i>=8?5:40+i)),fault_active:series(i=>(i>=8&&i<11?1:0)),probe_success:series(i=>(i>=8?0:1)),
@@ -125,4 +125,29 @@ test('a failing metrics request is also only a quiet note',async({page})=>{
   await page.getByRole('row',{name:/hotel_geo_stop/}).click();
   await expect(page.getByTestId('prom-note')).toContainText('could not be loaded');
   await expect(page.getByLabel('Run detail').getByRole('img',{name:/Latency over time/})).toBeVisible();
+});
+
+test('Run, Stop and Recover are greyed out when the API reports execution disabled',async({page})=>{
+  const fault={target:'hotel-sandbox-geo-1',fault:'container_stop'};
+  await mockChaos(page,{...idle,execution_enabled:false,fault_active:true,fault});await openChaosRuns(page);
+  await expect(page.getByRole('button',{name:'Run',exact:true})).toBeDisabled();
+  await expect(page.getByRole('alert').filter({hasText:'A fault is still in place'}).getByRole('button',{name:'Recover'})).toBeDisabled();
+  await expect(page.getByText('Run, Stop and Recover stay grey')).toBeVisible();
+});
+
+test('the Stop button is greyed out while a run is shown with execution disabled',async({page})=>{
+  await mockChaos(page,{...idle,execution_enabled:false,running:true,experiment:'hotel_geo_stop',pid:1,log_tail:['  [baseline] ok   status=200    42.1ms']});await openChaosRuns(page);
+  await expect(page.getByRole('button',{name:'Stop run'})).toBeDisabled();
+});
+
+test('run ids in a finding are separated',async({page})=>{
+  await mockChaos(page,idle);await openChaosRuns(page);
+  await expect(page.getByLabel('Findings').getByText(/Runs: .*hotel_geo_stop-abc123, 20261017-000002/)).toBeVisible();
+});
+
+test('the header uses ChaosInject branding',async({page})=>{
+  await mockChaos(page,idle);await openChaosRuns(page);
+  await expect(page.getByText('CHAOSINJECT')).toBeVisible();
+  expect(await page.locator('body').innerText()).not.toMatch(/bosch|kind-bosch|boutique/i);
+  await expect(page).toHaveTitle('ChaosInject');
 });
