@@ -31,7 +31,7 @@ const nullScore={formula_version:1,score:null,headline:'n/a (no scored runs yet)
   coverage:{tested:0,possible:9,fraction:0,untested:[]},targets:[],unmapped_targets:[],runs_not_scored:[]};
 const idle={running:false,experiment:null,pid:null,started_at:null,exit_code:null,run_id:null,fault_active:false,fault:null,stop_requested:false,log_tail:[]};
 
-async function mockChaos(page:Page,active:object,onRun?:()=>{status:number,body:object},metrics:{status:number,body:object}=defaultMetrics,scoreBody:object=partialScore){
+async function mockChaos(page:Page,active:object,onRun?:()=>{status:number,body:object},metrics:{status:number,body:object}=defaultMetrics,scoreBody:object=partialScore,findingsBody:object=findings,proposalsBody:object=proposals){
   await page.route('**/api/v1/chaos/**',route=>{
     const url=new URL(route.request().url());const path=url.pathname.replace('/api/v1/chaos','');
     const json=(body:object,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
@@ -40,9 +40,9 @@ async function mockChaos(page:Page,active:object,onRun?:()=>{status:number,body:
     if(path==='/runs/'+run.run_id+'/metrics')return json(metrics.body,metrics.status);
     if(path==='/runs/'+run.run_id)return json(run);
     if(path==='/score')return json(scoreBody);
-    if(path==='/findings')return json(findings);
+    if(path==='/findings')return json(findingsBody);
     if(path.startsWith('/findings/report'))return route.fulfill({status:200,contentType:'text/markdown',body:'# Chaos findings'});
-    if(path==='/proposals')return json(proposals);
+    if(path==='/proposals')return json(proposalsBody);
     if(path==='/active')return json(active);
     if(path.endsWith('/run')&&onRun){const r=onRun();return json(r.body,r.status);}
     return json({code:'NOT_FOUND',message:'not mocked'},404);
@@ -245,4 +245,36 @@ test('with no scored runs the score is n/a and says what to do next',async({page
   await expect(card.getByLabel('Resilience score n/a')).toBeVisible();
   await expect(card).toContainText('No scored runs yet');
   await expect(card).not.toContainText(/0\/100/);
+});
+
+const liveFindings=(location:string)=>({...findings,llm:{mode:'live',model:'llama-3.3-70b-versatile',location},
+  findings:[{...findings.findings[0],explanation:'Model-written wording for this finding.',explanation_source:'live',explanation_model:'llama-3.3-70b-versatile'}]});
+const liveProposals=(location:string)=>({...proposals,llm:{mode:'live',model:'llama-3.3-70b-versatile',location},
+  proposals:[{...proposals.proposals[0],rationale:'Model-written rationale.',rationale_source:'live',rationale_model:'llama-3.3-70b-versatile'}]});
+
+test('without a language model both panels say the text is rule-based',async({page})=>{
+  await mockChaos(page,idle);await openChaosRuns(page);
+  await expect(page.getByLabel('Findings').getByText('Rule-based explanation')).toBeVisible();
+  await expect(page.getByLabel('Suggested experiments').getByText('Rule-based explanation')).toBeVisible();
+  await expect(page.getByText(/Explained by/)).toHaveCount(0);
+});
+
+test('model-written text is labelled with the model and where it runs',async({page})=>{
+  await mockChaos(page,idle,undefined,undefined,undefined,liveFindings('hosted'),liveProposals('local'));await openChaosRuns(page);
+  const f=page.getByLabel('Findings');
+  await expect(f).toContainText('Model-written wording for this finding.');
+  await expect(f.getByText('Explained by llama-3.3-70b-versatile (hosted)')).toBeVisible();
+  const s=page.getByLabel('Suggested experiments');
+  await expect(s).toContainText('Model-written rationale.');
+  await expect(s.getByText('Explained by llama-3.3-70b-versatile (local)')).toBeVisible();
+  await expect(page.getByText('Rule-based explanation')).toHaveCount(0);
+});
+
+test('when the model could not help, the panel states why and shows the rule-based text',async({page})=>{
+  const note='The language model gave no usable text for 1 of 1 item(s) (unreachable, too slow, an unexpected answer, or a number that was not in the evidence); rule-based text is shown for them.';
+  await mockChaos(page,idle,undefined,undefined,undefined,{...findings,llm:{mode:'live',model:'llama-3.3-70b-versatile',location:'hosted'},limitations:[note]});await openChaosRuns(page);
+  const f=page.getByLabel('Findings');
+  await expect(f).toContainText('gave no usable text');
+  await expect(f.getByText('Rule-based explanation')).toBeVisible();
+  expect(await warmColours(page)).toEqual([]);
 });

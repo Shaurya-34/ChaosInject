@@ -31,6 +31,7 @@ if str(ROOT) not in sys.path:  # chaos/ lives at the repo root, beside backend/
 
 from chaos.controller import PolicyError, check_policy  # noqa: E402  (read-only use: validation only)
 
+from .llm_transport import ExplanationCache, cache_key  # noqa: E402
 from .reasoning import ReasoningBudget, ReasoningProvider  # noqa: E402
 
 PROBE_URL = "http://127.0.0.1:5000/hotels?inDate=2015-04-09&outDate=2015-04-10&lat=38.0235&lon=-122.095"
@@ -237,30 +238,57 @@ def _fact_numbers(p: Mapping[str, Any]) -> set[float]:
 
 
 def enrich_rationales(
-    proposals: list[dict[str, Any]], provider: ReasoningProvider, budget: ReasoningBudget | None = None
+    proposals: list[dict[str, Any]],
+    provider: ReasoningProvider,
+    budget: ReasoningBudget | None = None,
+    cache: ExplanationCache | None = None,
 ) -> list[dict[str, Any]]:
-    """Reword rationales with a model when one is configured; otherwise return the input unchanged."""
+    """Reword rationales with a model when one is configured; otherwise return the input unchanged.
+
+    Each accepted text is cached by a hash of the model and the proposal's own data, so repeat calls with the
+    same data never reach the model. Anything rejected or missing keeps the deterministic text.
+    """
 
     budget = budget or ReasoningBudget()
     if provider.mode == "deterministic" or not proposals:
         return proposals
-    payload = json.dumps(
-        [{"id": p["experiment"]["name"], "target": p["experiment"]["target"], "fault": p["experiment"]["fault"],
-          "facts": p["rationale"], "impact": p["expected_impact"]} for p in proposals],
-        sort_keys=True,
-    )
-    for _ in range(max(1, budget.max_attempts)):
-        try:
-            raw = provider.complete(_SYSTEM, "DATA:\n" + payload, budget.max_output_tokens, budget.timeout_seconds)
-            items = {i["id"]: i["text"] for i in json.loads(raw)["rationales"]}
-        except Exception:
-            continue
-        out = []
+    model = provider.model_id or provider.mode
+
+    def item(p: Mapping[str, Any]) -> dict[str, Any]:
+        e = p["experiment"]
+        return {"id": e["name"], "target": e["target"], "fault": e["fault"], "facts": p["rationale"], "impact": p["expected_impact"]}
+
+    def valid(p: Mapping[str, Any], text: Any) -> bool:
+        return isinstance(text, str) and 0 < len(text) <= _MAX_CHARS and all(
+            round(float(n), 4) in _fact_numbers(p) for n in _NUMBER.findall(text)
+        )
+
+    keys = {p["experiment"]["name"]: cache_key(model, "rationale", item(p)) for p in proposals}
+    texts: dict[str, str] = {}
+    if cache is not None:
         for p in proposals:
-            text = items.get(p["experiment"]["name"])
-            ok = isinstance(text, str) and 0 < len(text) <= _MAX_CHARS and all(
-                round(float(n), 4) in _fact_numbers(p) for n in _NUMBER.findall(text)
-            )
-            out.append({**p, "rationale": text, "rationale_source": provider.mode} if ok else p)
-        return out
-    return proposals
+            name = p["experiment"]["name"]
+            cached = cache.get(keys[name])
+            if cached is not None and valid(p, cached):
+                texts[name] = cached
+    pending = [p for p in proposals if p["experiment"]["name"] not in texts]
+    if pending:
+        payload = json.dumps([item(p) for p in pending], sort_keys=True)
+        for _ in range(max(1, budget.max_attempts)):
+            try:
+                raw = provider.complete(_SYSTEM, "DATA:\n" + payload, budget.max_output_tokens, budget.timeout_seconds)
+                items = {i["id"]: i["text"] for i in json.loads(raw)["rationales"]}
+            except Exception:
+                continue
+            for p in pending:
+                name = p["experiment"]["name"]
+                if valid(p, items.get(name)):
+                    texts[name] = items[name]
+                    if cache is not None:
+                        cache.put(keys[name], items[name], model)
+            break
+    return [
+        {**p, "rationale": texts[n], "rationale_source": provider.mode, "rationale_model": model}
+        if (n := p["experiment"]["name"]) in texts else p
+        for p in proposals
+    ]

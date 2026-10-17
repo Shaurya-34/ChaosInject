@@ -3,7 +3,7 @@ import {AlertTriangle,OctagonX,Play,RotateCcw} from 'lucide-react';
 import {CartesianGrid,ComposedChart,Legend,Line,ReferenceArea,ResponsiveContainer,Scatter,Tooltip,XAxis,YAxis} from 'recharts';
 import {PrometheusCharts} from './PrometheusCharts';
 import {ScoreCard} from './Score';
-import {ChaosApiError,chaos,chaosDownload,phaseFromLog,refusalMessage,type ActiveRun,type ChaosRun,type ExperimentRow,type IndexEntry,type Proposals,type Findings,type Score} from './chaosApi';
+import {ChaosApiError,chaos,chaosDownload,explainedBy,phaseFromLog,refusalMessage,type ActiveRun,type ChaosRun,type ExperimentRow,type IndexEntry,type Proposals,type Findings,type Score} from './chaosApi';
 
 const pct=(x:number|null|undefined)=>x==null?'n/a':`${Math.round(x*100)}%`;
 const ms=(x:number|null|undefined)=>x==null?'n/a':`${Math.round(x)} ms`;
@@ -163,7 +163,7 @@ function SuggestedExperiments({data,onCopied}:{data:Proposals;onCopied:()=>void}
     {data.proposals.map((p,i)=><div className="suggest-row" key={p.experiment.name}>
       <span className="rank">{i+1}</span>
       <div><strong>{p.experiment.name}</strong> <span className="small-tag">{p.experiment.fault}</span> <span className="small-tag">score {p.score}</span>
-        <p>{p.rationale}</p><p className="muted">{p.expected_impact}</p></div>
+        <p>{p.rationale}</p><p className="muted explain-source" data-source={p.rationale_source}>{explainedBy(p.rationale_source,p.rationale_model,data.llm?.location)}</p><p className="muted">{p.expected_impact}</p></div>
       <button onClick={()=>copy(p)} title="Copy the experiment JSON to the clipboard">Copy JSON</button>
     </div>)}
     {data.rejected.length>0&&<details><summary>{data.rejected.length} candidates refused by policy</summary><ul className="muted">{data.rejected.slice(0,40).map(r=><li key={r.target+r.fault}>{r.target} · {r.fault}: {r.reason}</li>)}</ul></details>}
@@ -180,6 +180,7 @@ function FindingsPanel({data,onOpen,onError}:{data:Findings;onOpen:(id:string)=>
     {data.findings.map(f=><article className={'finding-card sev'+f.severity} key={f.id}>
       <div><span className={'small-tag sev'+f.severity}>{f.severity_label.toUpperCase()}</span> <strong>{f.title}</strong></div>
       <p>{f.explanation}</p>
+      <p className="muted explain-source" data-source={f.explanation_source}>{explainedBy(f.explanation_source,f.explanation_model,data.llm?.location)}</p>
       <p className="muted">Affects: {f.affected_endpoints.join(', ')||'no working endpoint'} · Runs: {f.run_ids.map((id,i)=><React.Fragment key={id}>{i>0&&', '}<button className="link" onClick={()=>onOpen(id)}>{id}</button></React.Fragment>)}</p>
       <p><strong>Suggested fix.</strong> {f.suggested_fix}</p>
     </article>)}

@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from .injection_agent import affected_endpoints, node_for_target
+from .llm_transport import ExplanationCache, cache_key
 from .reasoning import ReasoningBudget, ReasoningProvider
 
 SEVERITY_LABELS = {
@@ -192,6 +193,12 @@ def _num(x: Any, unit: str = "") -> str:
     return "n/a" if x is None else f"{x:g}{unit}" if isinstance(x, (int, float)) and not isinstance(x, bool) else str(x)
 
 
+def explanation_label(finding: Mapping[str, Any]) -> str:
+    """Where a finding's explanation text came from."""
+    model = finding.get("explanation_model")
+    return f"Explained by {model}" if finding.get("explanation_source") not in (None, "deterministic") and model else "Rule-based explanation"
+
+
 def _score_markdown(score: Mapping[str, Any]) -> list[str]:
     lines = ["## Resilience score", "", f"**{score['headline']}**", "",
              "Formula and weights: docs/resilience-score.md. Every number below comes from the named run.", ""]
@@ -218,7 +225,7 @@ def render_markdown(result: Mapping[str, Any]) -> str:
     if not result["findings"]:
         lines.append("No weaknesses found in the saved runs.")
     for i, f in enumerate(result["findings"], 1):
-        lines += [f"## {i}. [{f['severity_label']}] {f['title']}", "", f["explanation"], "",
+        lines += [f"## {i}. [{f['severity_label']}] {f['title']}", "", f["explanation"], "", f"_{explanation_label(f)}_", "",
                   f"- Affected endpoints: {', '.join(f['affected_endpoints']) or 'none'}",
                   f"- Runs: {', '.join(f['run_ids'])}", "", "| run_id | stop reason | recovered | recovery | baseline p95 | fault p95 | error rate |",
                   "|---|---|---|---|---|---|---|"]
@@ -261,7 +268,7 @@ def render_html(result: Mapping[str, Any]) -> str:
     if not result["findings"]:
         parts.append("<p>No weaknesses found in the saved runs.</p>")
     for i, f in enumerate(result["findings"], 1):
-        parts.append(f"<section class=\"s{f['severity']}\"><h2>{i}. {esc(f['severity_label'])}: {esc(f['title'])}</h2><p>{esc(f['explanation'])}</p>"
+        parts.append(f"<section class=\"s{f['severity']}\"><h2>{i}. {esc(f['severity_label'])}: {esc(f['title'])}</h2><p>{esc(f['explanation'])}</p><p><em>{esc(explanation_label(f))}</em></p>"
                      f"<p>Affected endpoints: {esc(', '.join(f['affected_endpoints']) or 'none')}</p><table><tr><th>run_id</th><th>stop reason</th>"
                      "<th>recovered</th><th>recovery</th><th>baseline p95</th><th>fault p95</th><th>error rate</th></tr>")
         for e in f["evidence"]:
@@ -299,27 +306,54 @@ def _allowed(f: Mapping[str, Any]) -> set[float]:
 
 
 def enrich_explanations(
-    findings: list[dict[str, Any]], provider: ReasoningProvider, budget: ReasoningBudget | None = None
+    findings: list[dict[str, Any]],
+    provider: ReasoningProvider,
+    budget: ReasoningBudget | None = None,
+    cache: ExplanationCache | None = None,
 ) -> list[dict[str, Any]]:
+    """Reword explanations with a model when one is configured; otherwise return the input unchanged.
+
+    Each accepted text is cached by a hash of the model and the finding's own data, so repeat calls with the
+    same data never reach the model. Anything rejected or missing keeps the deterministic text.
+    """
+
     budget = budget or ReasoningBudget()
     if provider.mode == "deterministic" or not findings:
         return findings
-    payload = json.dumps(
-        [{"id": f["id"], "severity": f["severity_label"], "facts": f["explanation"], "evidence": f["evidence"]} for f in findings],
-        sort_keys=True,
-    )
-    for _ in range(max(1, budget.max_attempts)):
-        try:
-            raw = provider.complete(_SYSTEM, "DATA:\n" + payload, budget.max_output_tokens, budget.timeout_seconds)
-            items = {i["id"]: i["text"] for i in json.loads(raw)["explanations"]}
-        except Exception:
-            continue
-        out = []
+    model = provider.model_id or provider.mode
+
+    def item(f: Mapping[str, Any]) -> dict[str, Any]:
+        return {"id": f["id"], "severity": f["severity_label"], "facts": f["explanation"], "evidence": f["evidence"]}
+
+    def valid(f: Mapping[str, Any], text: Any) -> bool:
+        return isinstance(text, str) and 0 < len(text) <= _MAX_CHARS and all(
+            round(float(n), 4) in _allowed(f) for n in _NUMBER.findall(text)
+        )
+
+    keys = {f["id"]: cache_key(model, "explanation", item(f)) for f in findings}
+    texts: dict[str, str] = {}
+    if cache is not None:
         for f in findings:
-            text = items.get(f["id"])
-            ok = isinstance(text, str) and 0 < len(text) <= _MAX_CHARS and all(
-                round(float(n), 4) in _allowed(f) for n in _NUMBER.findall(text)
-            )
-            out.append({**f, "explanation": text, "explanation_source": provider.mode} if ok else f)
-        return out
-    return findings
+            cached = cache.get(keys[f["id"]])
+            if cached is not None and valid(f, cached):
+                texts[f["id"]] = cached
+    pending = [f for f in findings if f["id"] not in texts]
+    if pending:
+        payload = json.dumps([item(f) for f in pending], sort_keys=True)
+        for _ in range(max(1, budget.max_attempts)):
+            try:
+                raw = provider.complete(_SYSTEM, "DATA:\n" + payload, budget.max_output_tokens, budget.timeout_seconds)
+                items = {i["id"]: i["text"] for i in json.loads(raw)["explanations"]}
+            except Exception:
+                continue
+            for f in pending:
+                if valid(f, items.get(f["id"])):
+                    texts[f["id"]] = items[f["id"]]
+                    if cache is not None:
+                        cache.put(keys[f["id"]], items[f["id"]], model)
+            break
+    return [
+        {**f, "explanation": texts[f["id"]], "explanation_source": provider.mode, "explanation_model": model}
+        if f["id"] in texts else f
+        for f in findings
+    ]
