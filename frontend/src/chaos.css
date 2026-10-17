@@ -56,3 +56,6 @@ button.link{background:none;border:0;padding:0 6px 0 0;color:#0b8178;text-decora
 .firstrun-item p{margin:6px 0 8px;font-size:12px;color:#3b4a6b}
 .chaos>*,.firstrun-item{min-width:0}
 .firstrun-command{display:block;max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere;background:#102b34;color:#cfe3e8;border-radius:6px;padding:8px 12px;font:11px ui-monospace,monospace}
+/* Long unbreakable names (hotel_memcached_reserve_stop) must wrap instead of pushing the button off a phone screen. */
+.catalog>div,.suggest-row>div{min-width:0;overflow-wrap:anywhere}
+.catalog button,.suggest-row button{flex:none}
