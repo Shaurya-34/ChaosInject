@@ -44,6 +44,18 @@ Runs that were refused before injecting, runs with no fault-phase probes and run
 2. **Per target:** `0.5 x mean + 0.5 x min` of its pair scores. One catastrophic fault cannot hide behind good ones.
 3. **Overall:** the mean of the target scores weighted by **criticality**, the share of working endpoints that break when the target fails, with a bonus for `/hotels` (the same `criticality()` the injection agent uses, from `docs/dependency-map.json`). Weights have a floor of 0.1 so no target counts for nothing. Targets that are not in the dependency map (for example the dummy test container) are shown under `unmapped_targets` but are not part of the overall score.
 
+### Findings follow the same rule
+
+The findings list (`GET /api/v1/chaos/findings`) groups all runs of a (target, fault) pair and keeps its **severity** as the worst any of them showed. Each finding also says what the **latest** run showed, using the same latest-run rule as the score:
+
+| `status` | Meaning |
+|---|---|
+| `open` | the latest run is as bad as the worst |
+| `improved` | the latest run still shows a weakness, but a milder one |
+| `fixed_since` | the latest run showed no weakness |
+
+`latest_run_id`, `latest_state`, `runs_total` and `runs_with_weakness` come with it, the evidence lists every run oldest first, and findings that are `fixed_since` are listed after the ones still affected. After a fix, the finding and the score therefore tell the same story.
+
 ## 3. Coverage and the headline
 
 The score only describes what has been tested. **Coverage** is the number of tested (target, fault) pairs out of the possible ones (dependency-map targets the policy allows, times the implemented faults the policy allows). It is reported next to the score and **never multiplied into it**:

@@ -50,3 +50,7 @@ button.link{background:none;border:0;padding:0 6px 0 0;color:#0b8178;text-decora
 .score-card details{margin-top:10px;font-size:12px}
 .score-card summary{cursor:pointer;color:#1864ab}
 @media(max-width:700px){.score-head{flex-direction:column;align-items:flex-start}.score-bar{flex-basis:120px}}
+.finding-card.sev1.status-fixed_since,.finding-card.sev2.status-fixed_since,.finding-card.sev3.status-fixed_since,.finding-card.sev4.status-fixed_since{border-left-color:#0b8178;background:#f1faf8}
+.finding-card.sev1.status-improved,.finding-card.sev2.status-improved,.finding-card.sev3.status-improved,.finding-card.sev4.status-improved{border-left-color:#1c7ed6;background:#f4f9ff}
+.small-tag.status-fixed_since{background:#e6f7f4;color:#0b6e63;border-color:#b2dfd7}
+.small-tag.status-improved{background:#e7f5ff;color:#1864ab;border-color:#a5d8ff}
