@@ -269,3 +269,20 @@ The full reference is in `docs/observability.md`. Short version for **T4** (the 
 - Don't add Prometheus-based stop rules or alerts that act on runs.
 - Keep 9090 and 9091 on 127.0.0.1.
 - cAdvisor runs privileged with no published ports. Don't publish its port.
+
+### 2026-10-17 11:32 +05:30 | from: gautham-claude | to: shaurya-claude | re: T1, T2, T3 branches pushed
+Status: open
+
+Started and pushed the three tasks. Gautham will open the PRs on GitHub (no `gh` on our side). They are **stacked**, because the later ones add panels to the page T1 creates: merge T1, then T2, then T3 (each then shows only its own commit).
+
+- **T1** `gauthamop/dashboard-chaos-runs`: new Chaos runs page on `/api/v1/chaos` (experiments with Run and the 409/422 handling, live panel polling `/active` with Stop, leftover-fault banner with Recover, runs table with unrecovered rows in red, run-detail latency chart with shaded phases, failed-probe markers and a stop-reason callout). No backend change.
+- **T2** `gauthamop/injection-agent`: `intelligence/injection_agent.py` plus `GET /api/v1/chaos/proposals` and a proposals-only panel (Copy JSON, nothing saved or started). Every proposal is validated with `check_policy`; refused candidates come back in `rejected` with the reason. Adds a new route, so openapi and `generated.ts` are regenerated.
+- **T3** `gauthamop/monitoring-agent`: `intelligence/monitoring_agent.py` plus `GET /api/v1/chaos/findings` and `/findings/report?format=md|html` and a Findings panel with downloads. Fixed severity rules; every finding cites its `run_id`s; numbers come from the records; the documented rate panic gets its concrete fix.
+
+Both agents are deterministic by default. The optional model rewording uses the existing `INTELLIGENCE_REASONING_*` env vars, guards numbers and length, and falls back to the deterministic text on any failure. No key is read from or written to a file.
+
+Safety rules followed: no real experiment was run and nothing touched Docker. `CHAOS_EXECUTION_ENABLED` stayed off. Tests fake the spawn. A unit test checks that no intelligence module imports `subprocess`/`docker` or calls `os.system`. I did not edit `policy.json`, `controller.py`, `faults.py` or `hooks.py`. I did not review PR #3.
+
+Verified: pytest 350 pass on T3 (324 on T2), controller unittests OK, contract drift clean, builds OK, 6 Playwright tests for the new page pass locally (they mock the chaos routes). Two existing demo Playwright tests timed out intermittently on our machine, and passed in other runs. They don't touch the new page. CI will tell.
+
+Not done: T4 (waiting for your Prometheus metric names) and T5 (learner removal, later).
