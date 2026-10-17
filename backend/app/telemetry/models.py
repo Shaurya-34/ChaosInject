@@ -219,7 +219,7 @@ class PhaseSummary(Exported):
 
 
 class SystemStateSnapshot(Exported):
-    """Point-in-time view used by the stop policy and by the learner.
+    """Point-in-time view used by the stop policy.
 
     ``valid_until`` is the hard freshness boundary. A consumer that reads this
     snapshot after ``valid_until`` must treat it as **unavailable**, not healthy.
@@ -256,66 +256,6 @@ class SystemStateSnapshot(Exported):
         if self.db_connections_used is None or not self.db_connections_limit:
             return None
         return self.db_connections_used / self.db_connections_limit
-
-
-# --------------------------------------------------------------------------
-# learning channel
-# --------------------------------------------------------------------------
-
-
-class LearningKind(str, Enum):
-    ARRIVAL = "arrival"
-    COMPLETED = "completed"
-    CENSORED = "censored"
-    FAILED = "failed"
-
-
-class LearningObservation(Exported):
-    """One transient observation handed to the learner. RAM only.
-
-    ``features`` are fixed at **arrival**, from the state at decision time.
-    Outcome events carry no features; they are joined to the pending arrival by
-    ``request_id``. Substituting post-execution state into a training record
-    would leak the outcome into its own inputs.
-
-    ``CENSORED`` marks a cancelled or capped job: the full-query duration was
-    never observed, so it is a lower bound and not a completed sample. A blocked
-    query produces no duration at all.
-    """
-
-    request_id: str
-    source: Source
-    captured_at: datetime
-    state_id: str | None = None
-    kind: LearningKind
-    features: dict[str, Finite] | None = None
-    duration_ms: Finite | None = Field(default=None, ge=0)
-    rows_returned: int | None = Field(default=None, ge=0)
-    bytes_returned: int | None = Field(default=None, ge=0)
-    active_fault_id: str | None = None
-    baseline_context: Literal["baseline", "injected_fault", "unknown"] = "unknown"
-    confounders: list[str] = Field(default_factory=list)
-    censoring_reason: str | None = None
-
-    @model_validator(mode="after")
-    def _shape_matches_kind(self) -> "LearningObservation":
-        if self.kind is LearningKind.ARRIVAL:
-            if self.features is None:
-                raise ValueError("an arrival observation must carry its features")
-            if self.duration_ms is not None:
-                raise ValueError("an arrival observation has no observed duration")
-        else:
-            if self.features is not None:
-                raise ValueError(
-                    "outcome observations must not restate features; join on request_id"
-                )
-        if self.kind is LearningKind.CENSORED and self.censoring_reason is None:
-            raise ValueError("a censored observation must record why it was censored")
-        if self.kind is LearningKind.FAILED and self.duration_ms is not None:
-            raise ValueError(
-                "a failed query has no valid completed duration to learn from"
-            )
-        return self
 
 
 # --------------------------------------------------------------------------
@@ -448,8 +388,6 @@ __all__ = [
     "DataQuality",
     "EvidenceRef",
     "Exported",
-    "LearningKind",
-    "LearningObservation",
     "LoadProfile",
     "OperationAggregate",
     "Outcome",

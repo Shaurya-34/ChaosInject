@@ -39,8 +39,6 @@ class FixtureIntelligence:
         a = load("analysis", AnalysisResult)
         refs = [r.model_copy(update={"run_id": summary.run_id, "evidence_hash": summary.evidence_hash}) for r in a.evidence_refs]
         return a.model_copy(update={"run_id": summary.run_id, "evidence_refs": refs, "hypotheses": [f.model_copy(update={"evidence_refs": refs}) for f in a.hypotheses], "recommendations": [f.model_copy(update={"evidence_refs": refs}) for f in a.recommendations]})
-    async def observe(self, observation): return await self.get_learning_status()
-    async def get_learning_status(self): return load("learning", LearningStatus).model_copy(update={"started_at": self.started})
 
 class FakeRuntime:
     """Approval/lifecycle test double; never a live safety worker."""

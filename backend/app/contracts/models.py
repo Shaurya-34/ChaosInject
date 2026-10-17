@@ -110,15 +110,6 @@ class SystemStateSnapshot(Observed):
 
 
 
-class Prediction(Contract):
-    duration_ms: Positive | None
-    learner_version: str
-    pre_update_sample_count: Count
-    cold_start: bool
-    drift_status: Literal["cold_start", "stable", "drift", "unknown"]
-    quality_note: str
-
-
 
 
 class FaultParameters(Contract):
@@ -280,44 +271,10 @@ class AnalysisResult(Observed):
     limitations: list[str]
 
 
-class LearningFeatures(Contract):
-    estimated_output_bytes: Positive | None
-    select_operation: bool
-    has_join: bool
-    has_sort: bool
-    p95_ms: Positive | None
-    error_rate: Fraction | None
-    connection_utilization: Fraction | None
-    ready_fraction: Fraction | None
 
 
-class LearningObservation(Observed):
-    request_id: str
-    captured_at: AwareDatetime
-    state_id: str
-    kind: Literal["arrival", "completed", "censored", "failed"]
-    features: LearningFeatures | None
-    duration_ms: Positive | None
-    output_rows: Count | None
-    active_fault_id: str | None
 
 
-class LearningStatus(Observed):
-    learner_version: str
-    started_at: AwareDatetime
-    processed: Count
-    updates: Count
-    pending_count: Annotated[int, Field(ge=0, le=128)]
-    dropped_events: Count
-    drift_status: Literal["cold_start", "stable", "drift", "unknown"]
-    prediction_error: Positive | None
-    retained_raw_examples: Literal[0] = 0
-    queue_limit: Annotated[int, Field(ge=1, le=256)]
-    pending_limit: Annotated[int, Field(ge=1, le=128)]
-    metric_buffer_seconds: Annotated[int, Field(ge=1, le=120)]
-    intent_ttl_seconds: Annotated[int, Field(ge=1, le=60)]
-    model_limit_bytes: Count
-    persistence: Literal["disabled"] = "disabled"
 
 
 class ActionParameters(Contract):

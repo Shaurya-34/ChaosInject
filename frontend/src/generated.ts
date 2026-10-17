@@ -314,23 +314,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/learning/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Learning Status */
-        get: operations["learning_status_api_v1_learning_status_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/reports/{run_id}": {
         parameters: {
             query?: never;
@@ -982,124 +965,6 @@ export interface components {
              */
             status: "ready" | "degraded";
         };
-        /** LearningFeatures */
-        LearningFeatures: {
-            /** Connection Utilization */
-            connection_utilization: number | null;
-            /** Error Rate */
-            error_rate: number | null;
-            /** Estimated Output Bytes */
-            estimated_output_bytes: number | null;
-            /** Has Join */
-            has_join: boolean;
-            /** Has Sort */
-            has_sort: boolean;
-            /** P95 Ms */
-            p95_ms: number | null;
-            /** Ready Fraction */
-            ready_fraction: number | null;
-            /**
-             * Schema Version
-             * @default 1.0
-             * @constant
-             */
-            schema_version: "1.0";
-            /** Select Operation */
-            select_operation: boolean;
-        };
-        /** LearningObservation */
-        LearningObservation: {
-            /** Active Fault Id */
-            active_fault_id: string | null;
-            /**
-             * Captured At
-             * Format: date-time
-             */
-            captured_at: string;
-            /** Duration Ms */
-            duration_ms: number | null;
-            features: components["schemas"]["LearningFeatures"] | null;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "arrival" | "completed" | "censored" | "failed";
-            /** Output Rows */
-            output_rows: number | null;
-            /** Request Id */
-            request_id: string;
-            /**
-             * Schema Version
-             * @default 1.0
-             * @constant
-             */
-            schema_version: "1.0";
-            /**
-             * Source
-             * @enum {string}
-             */
-            source: "live" | "fixture" | "replay";
-            /** State Id */
-            state_id: string;
-        };
-        /** LearningStatus */
-        LearningStatus: {
-            /**
-             * Drift Status
-             * @enum {string}
-             */
-            drift_status: "cold_start" | "stable" | "drift" | "unknown";
-            /** Dropped Events */
-            dropped_events: number;
-            /** Intent Ttl Seconds */
-            intent_ttl_seconds: number;
-            /** Learner Version */
-            learner_version: string;
-            /** Metric Buffer Seconds */
-            metric_buffer_seconds: number;
-            /** Model Limit Bytes */
-            model_limit_bytes: number;
-            /** Pending Count */
-            pending_count: number;
-            /** Pending Limit */
-            pending_limit: number;
-            /**
-             * Persistence
-             * @default disabled
-             * @constant
-             */
-            persistence: "disabled";
-            /** Prediction Error */
-            prediction_error: number | null;
-            /** Processed */
-            processed: number;
-            /** Queue Limit */
-            queue_limit: number;
-            /**
-             * Retained Raw Examples
-             * @default 0
-             * @constant
-             */
-            retained_raw_examples: 0;
-            /**
-             * Schema Version
-             * @default 1.0
-             * @constant
-             */
-            schema_version: "1.0";
-            /**
-             * Source
-             * @enum {string}
-             */
-            source: "live" | "fixture" | "replay";
-            /**
-             * Started At
-             * Format: date-time
-             */
-            started_at: string;
-            /** Updates */
-            updates: number;
-        };
         /** LoadProfile */
         LoadProfile: {
             /** Concurrency */
@@ -1211,30 +1076,6 @@ export interface components {
              * Format: date-time
              */
             started_at: string;
-        };
-        /** Prediction */
-        Prediction: {
-            /** Cold Start */
-            cold_start: boolean;
-            /**
-             * Drift Status
-             * @enum {string}
-             */
-            drift_status: "cold_start" | "stable" | "drift" | "unknown";
-            /** Duration Ms */
-            duration_ms: number | null;
-            /** Learner Version */
-            learner_version: string;
-            /** Pre Update Sample Count */
-            pre_update_sample_count: number;
-            /** Quality Note */
-            quality_note: string;
-            /**
-             * Schema Version
-             * @default 1.0
-             * @constant
-             */
-            schema_version: "1.0";
         };
         /** Readiness */
         Readiness: {
@@ -2229,26 +2070,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
-                };
-            };
-        };
-    };
-    learning_status_api_v1_learning_status_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LearningStatus"];
                 };
             };
         };

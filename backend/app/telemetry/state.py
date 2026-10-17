@@ -15,7 +15,7 @@ than its implementation:
   summaries, so the number on the live dashboard and the number in the report
   come from the same policy.
 
-The snapshot also carries ``active_fault_id`` so the learner can label an
+The snapshot also carries ``active_fault_id`` so a consumer can label an
 observation as baseline or injected-fault rather than guessing from timing.
 """
 

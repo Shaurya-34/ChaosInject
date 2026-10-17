@@ -1,4 +1,4 @@
-"""IntelligencePort implementation: composes learner, planner and diagnosis.
+"""IntelligencePort implementation: composes planner and diagnosis.
 
 Implements ``app.api.ports.IntelligencePort`` (async). The service never
 mutates the cluster.
@@ -15,15 +15,12 @@ from app.contracts import (
     AnalysisResult,
     Catalog,
     ExperimentProposal,
-    LearningObservation,
-    LearningStatus,
     RunSummary,
     SystemStateSnapshot,
     TopologySnapshot,
 )
 
 from .diagnosis import DiagnosisConfig, analyze, to_contract
-from .learner import StreamingLearner
 from .planner import PlannerConfig, plan
 from .reasoning import DeterministicProvider, ReasoningBudget, ReasoningProvider, enrich
 
@@ -38,7 +35,6 @@ class IntelligenceService:
     def __init__(
         self,
         *,
-        learner: StreamingLearner | None = None,
         planner_config: PlannerConfig | None = None,
         diagnosis_config: DiagnosisConfig | None = None,
         provider: ReasoningProvider | None = None,
@@ -46,7 +42,6 @@ class IntelligenceService:
         budget: ReasoningBudget | None = None,
         now: Callable[[], datetime] = _utc_now,
     ):
-        self.learner = learner or StreamingLearner()
         self.planner_config = planner_config or PlannerConfig()
         self.diagnosis_config = diagnosis_config or DiagnosisConfig()
         self.provider = provider or DeterministicProvider()
@@ -60,7 +55,7 @@ class IntelligenceService:
     async def plan(
         self, topology: TopologySnapshot, state: SystemStateSnapshot | None, catalog: Catalog, coverage: dict | None = None
     ) -> list[ExperimentProposal]:
-        cov = self.learner.coverage() if not coverage else coverage
+        cov = coverage or {}
         return plan(topology, state, catalog, cov, self._now(), self.planner_config)
 
     def note_run_target(self, run_id: str, target_id: str) -> None:
@@ -81,10 +76,3 @@ class IntelligenceService:
             diag = await asyncio.to_thread(enrich, diag, summary, self.provider, self.budget, self.provider_limitations)
         return to_contract(diag, summary)
 
-    # -- learning ---------------------------------------------------------------
-
-    async def observe(self, observation: LearningObservation) -> LearningStatus:
-        return self.learner.observe(observation)
-
-    async def get_learning_status(self) -> LearningStatus:
-        return self.learner.status()

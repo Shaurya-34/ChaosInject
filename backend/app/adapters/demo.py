@@ -91,24 +91,6 @@ class DemoAdapter:
             manual_corrections=["Local service identities; no Kubernetes discovery or UIDs"],
         )
 
-    async def get_learning_status(self):
-        return LearningStatus(
-            source="live",
-            learner_version="not-integrated",
-            started_at=self.started,
-            processed=0,
-            updates=0,
-            pending_count=0,
-            dropped_events=0,
-            drift_status="cold_start",
-            prediction_error=None,
-            queue_limit=256,
-            pending_limit=128,
-            metric_buffer_seconds=120,
-            intent_ttl_seconds=60,
-            model_limit_bytes=0,
-        )
-
     async def catalog(self):
         return Catalog(source="live", entries=[])
 

@@ -76,10 +76,3 @@ def test_hypothesis_uses_source_derived_soft_dependencies(svc):
     props = run(svc.plan(fakes.topology(now), fakes.state(now), fakes.catalog(), {}))
     pc = next(p for p in props if p.target_id == "productcatalogservice")
     assert "browse" in pc.hypothesis and "checkout" in pc.hypothesis
-
-
-def test_learner_coverage_feeds_planner_when_api_passes_none(svc):
-    svc.learner.record_experiment("EXP-02", "redis-cart")
-    props = run(svc.plan(fakes.topology(), fakes.state(), fakes.catalog(), {}))
-    top = (props[0].catalog_id, props[0].target_id)
-    assert top != ("EXP-02", "redis-cart")

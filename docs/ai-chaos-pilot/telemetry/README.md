@@ -1,5 +1,7 @@
 # Telemetry workstream (Navya)
 
+> **Removed (gauthamop/remove-learner):** the learning channel (`learning.py`, `LearningObservation`, `LearningKind`, `LearningChannelConfig`) and the PostgreSQL plan estimator were removed. Sections below that describe them are historical.
+
 Owner: Navya · Branch: `feat/navya-telemetry` · Context: `kind-bosch-navya`
 Paths: `backend/app/telemetry/`, `tests/telemetry/`, `docs/telemetry/`, `scripts/telemetry/`
 

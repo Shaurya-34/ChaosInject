@@ -14,8 +14,6 @@ idna==3.20
 iniconfig==2.3.1
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
-narwhals==2.27.1
-numpy==2.5.3
 opentelemetry-api==1.45.1
 packaging==26.3
 pluggy==1.6.0
@@ -25,9 +23,7 @@ pygments==2.21.0
 pytest==9.1.1
 pytest-asyncio==1.4.0
 referencing==0.37.0
-river==0.26.1
 rpds-py==2026.9.1
-scipy==1.18.1
 starlette==1.7.0
 typing-extensions==4.16.0
 typing-inspection==0.4.4
