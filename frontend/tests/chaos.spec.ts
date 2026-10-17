@@ -14,6 +14,7 @@ const run={
 };
 const index=[{run_id:run.run_id,file:run.run_id+'.json',experiment:'hotel_geo_stop',target:'hotel-sandbox-geo-1',fault:'container_stop',duration_s:20,stop_reason:run.stop_reason,recovered:false,recovery_s:null,during_error_rate:1,during_p95_ms:null,baseline_p95_ms:42}];
 const proposals={proposals:[{experiment:{name:'hotel-rate-stop',target:'hotel-sandbox-rate-1',fault:'container_stop',duration_s:20},rationale:'container_stop on rate has never been run; 1 working endpoint(s) depend on rate.',expected_impact:'Stops the container for rate. Requests to /hotels depend on it.',affected_endpoints:['/hotels'],times_run:0,score:0.68,rationale_source:'deterministic'}],rejected:[{target:'hotel-sandbox-frontend-1',fault:'container_stop',reason:"target 'hotel-sandbox-frontend-1' is not allowlisted"}],limitations:[]};
+const findings={findings:[{id:'hotel-sandbox-geo-1:container_stop',severity:1,severity_label:'Not recovered / crashed',title:'container_stop on hotel-sandbox-geo-1: not recovered / crashed',target:'hotel-sandbox-geo-1',fault:'container_stop',affected_endpoints:['/hotels'],explanation:'In 1 run(s), the system did not recover after the fault was removed.',suggested_fix:'Run at least two replicas behind service discovery.',run_ids:[run.run_id],explanation_source:'deterministic',evidence:[]}],runs_analyzed:1,runs_without_findings:0,runs_not_evaluated:0,limitations:[]};
 const idle={running:false,experiment:null,pid:null,started_at:null,exit_code:null,run_id:null,fault_active:false,fault:null,stop_requested:false,log_tail:[]};
 
 async function mockChaos(page:Page,active:object,onRun?:()=>{status:number,body:object}){
@@ -23,6 +24,8 @@ async function mockChaos(page:Page,active:object,onRun?:()=>{status:number,body:
     if(path==='/experiments')return json([{id:'hotel_geo_stop',name:'hotel_geo_stop',target:'hotel-sandbox-geo-1',fault:'container_stop',duration_s:20}]);
     if(path==='/runs')return json(index);
     if(path==='/runs/'+run.run_id)return json(run);
+    if(path==='/findings')return json(findings);
+    if(path.startsWith('/findings/report'))return route.fulfill({status:200,contentType:'text/markdown',body:'# Chaos findings'});
     if(path==='/proposals')return json(proposals);
     if(path==='/active')return json(active);
     if(path.endsWith('/run')&&onRun){const r=onRun();return json(r.body,r.status);}
@@ -71,4 +74,13 @@ test('suggested experiments are shown as proposals only, with policy refusals li
   await expect(panel.getByRole('button',{name:'Copy JSON'})).toBeVisible();
   await panel.getByText('1 candidates refused by policy').click();await expect(panel).toContainText('not allowlisted');
   await expect(page.getByRole('button',{name:'Run',exact:true})).toHaveCount(1); // only the real experiment has Run; a proposal has none
+});
+
+test('findings are ranked with their runs, fix and a report download',async({page})=>{
+  await mockChaos(page,idle);await openChaosRuns(page);
+  const panel=page.getByLabel('Findings');
+  await expect(panel).toContainText('NOT RECOVERED / CRASHED');await expect(panel).toContainText('Run at least two replicas');
+  await panel.getByRole('button',{name:run.run_id}).click();await expect(page.getByLabel('Run detail')).toBeVisible();
+  const download=page.waitForEvent('download');await panel.getByRole('button',{name:'Download Markdown'}).click();
+  expect((await download).suggestedFilename()).toBe('chaos-findings.md');
 });
