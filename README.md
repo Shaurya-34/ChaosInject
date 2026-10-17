@@ -60,6 +60,9 @@ Open **Chaos runs**. A "Getting started" panel appears on a fresh clone and says
 - **Findings:** ranked weaknesses, each marked open, improved since or fixed since, with a downloadable report.
 - **Suggested next experiments:** the injection agent's proposals. It only proposes; a person starts every run.
 
+The two agents are rule-based. An optional LLM (Groq, or a local Ollama) can reword their explanation
+text; it can't change a ranking, a score or a number. See [docs/llm.md](docs/llm.md).
+
 ## Services under test
 
 [DeathStarBench Hotel Reservation](https://github.com/delimitrou/DeathStarBench/tree/master/hotelReservation)
