@@ -74,6 +74,34 @@ time() - container_last_seen{name="hotel-sandbox-rate-1"}
 
 For a finished run, query the range `[fault_started - 10 s, fault_ended + recovery_s + 10 s]`, taking the times from `GET /api/v1/chaos/runs/{run_id}`.
 
+## API: metrics for a saved run
+
+`GET /api/v1/chaos/runs/{run_id}/metrics` (Bearer token, read-only) runs a **fixed set of named queries** over that run's window. The browser picks only the run; it never sends PromQL. The container name comes from the run's own `experiment.target`, and the target queries are included only if that target is in `chaos/policy.json` `allowed_targets`.
+
+| Series | Query |
+|---|---|
+| `controller_latency_ms` | `chaos_probe_latency_ms{experiment="<run's experiment name>"}` |
+| `fault_active` | `chaos_fault_active{experiment="<name>"}` |
+| `probe_success` | `probe_success{job="blackbox-hotels"}` |
+| `probe_duration_ms` | `probe_duration_seconds{job="blackbox-hotels"} * 1000` |
+| `target_net_tx_pps` | `rate(container_network_transmit_packets_total{name="<target>"}[30s])` |
+| `target_memory_bytes` | `container_memory_working_set_bytes{name="<target>"}` |
+| `target_last_seen_age_s` | `time() - container_last_seen{name="<target>"}` (grows if the container dies) |
+
+```json
+{"window": {"start": 1792215920, "end": 1792215962}, "step_s": 1,
+ "series": {"probe_duration_ms": [[1792215920.0, 14.2], ...], ...},
+ "available": true, "reason": null}
+```
+
+- **Window:** `[fault_started - 10 s, fault_ended + recovery + 10 s]`, with a fixed 1 s step, capped at 600 s. Refused runs use their probe times.
+- **`available: false`** comes with a `reason` and empty series in two cases:
+  - `"prometheus unreachable"`
+  - `"no data in this window …"`: covers runs from **before the stack was running** and runs older than the 2-day retention. Nothing else changes; the run record itself is unaffected.
+- The Prometheus URL is `CHAOS_PROMETHEUS_URL` (default `http://127.0.0.1:9090`), with a 3 s timeout per query.
+
+Checked live: a `hotel_rate_loss` run recorded with the stack up returned all 7 series. An earlier run, from before the stack existed, returned `available: false` with the "no data" reason.
+
 ## Verified
 
 On Windows 11 (amd64, Docker Desktop, containerd image store), I ran `hotel_rate_loss` with all three targets up:

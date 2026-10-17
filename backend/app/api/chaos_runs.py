@@ -222,11 +222,114 @@ def create_router(execution_enabled: bool) -> APIRouter:
 
     @router.get("/runs/{run_id}")
     async def run_detail(run_id: str):
-        if not RUN_ID.match(run_id) or run_id.startswith("."):
-            raise PortError("INVALID_REQUEST", 422)
-        try:
-            return hooks.load_result(run_id)
-        except FileNotFoundError:
-            raise PortError("NOT_FOUND", 404)
+        return _load_run(run_id)
+
+    @router.get("/runs/{run_id}/metrics")
+    def run_metrics(run_id: str):  # sync: Prometheus calls block, so this runs in a worker thread
+        """Prometheus series for a run's time window, from a fixed set of named queries. Read-only."""
+        return _run_metrics(_load_run(run_id))
 
     return router
+
+
+def _load_run(run_id):
+    if not RUN_ID.match(run_id) or run_id.startswith("."):
+        raise PortError("INVALID_REQUEST", 422)
+    try:
+        return hooks.load_result(run_id)
+    except FileNotFoundError:
+        raise PortError("NOT_FOUND", 404)
+
+
+# --------------------------------------------------------------------------- #
+# Run metrics from Prometheus (sandbox/observability). Observability only.
+# --------------------------------------------------------------------------- #
+
+PROMETHEUS_URL = os.environ.get("CHAOS_PROMETHEUS_URL", "http://127.0.0.1:9090")
+PROM_TIMEOUT_S = 3.0
+METRICS_STEP_S = 1
+WINDOW_PAD_S = 10
+MAX_WINDOW_S = 600  # a run is at most ~3.5 min (hard timeout + recovery); cap anything odd
+CONTAINER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+
+# Named queries only: the browser picks nothing but the run. {target} comes from the run record,
+# after it is checked against policy.allowed_targets and CONTAINER.
+RUN_QUERIES = {
+    "controller_latency_ms": 'chaos_probe_latency_ms{{experiment="{experiment}"}}',
+    "fault_active": 'chaos_fault_active{{experiment="{experiment}"}}',
+    "probe_success": 'probe_success{{job="blackbox-hotels"}}',
+    "probe_duration_ms": 'probe_duration_seconds{{job="blackbox-hotels"}} * 1000',
+}
+TARGET_QUERIES = {
+    "target_net_tx_pps": 'rate(container_network_transmit_packets_total{{name="{target}"}}[30s])',
+    "target_memory_bytes": 'container_memory_working_set_bytes{{name="{target}"}}',
+    "target_last_seen_age_s": 'time() - container_last_seen{{name="{target}"}}',
+}
+
+
+def _window(record):
+    """[fault_started - 10 s, fault_ended + recovery + 10 s]; refused runs use their probe times."""
+    times = [s["t"] for phase in ("baseline", "during", "recovery") for s in record.get(phase) or []
+             if isinstance(s, dict) and isinstance(s.get("t"), (int, float))]
+    start = record.get("fault_started") or (min(times) if times else None)
+    end = record.get("fault_ended") or (max(times) if times else None)
+    if start is None or end is None:
+        return None
+    end += record.get("recovery_s") or 0
+    if record.get("recovery"):
+        end = max(end, max(s["t"] for s in record["recovery"] if isinstance(s.get("t"), (int, float))))
+    start, end = int(start - WINDOW_PAD_S), int(end + WINDOW_PAD_S) + 1
+    return start, min(end, start + MAX_WINDOW_S)
+
+
+def _prom_query_range(query, start, end, step):
+    """One Prometheus range query -> [[unix_s, float], ...] for the first series (or [])."""
+    import math
+    import urllib.parse
+    import urllib.request
+    url = PROMETHEUS_URL.rstrip("/") + "/api/v1/query_range?" + urllib.parse.urlencode(
+        {"query": query, "start": start, "end": end, "step": step})
+    with urllib.request.urlopen(url, timeout=PROM_TIMEOUT_S) as r:
+        body = json.loads(r.read())
+    result = (body.get("data") or {}).get("result") or []
+    if not result:
+        return []
+    points = []
+    for t, v in result[0].get("values", []):
+        value = float(v)
+        if math.isfinite(value):
+            points.append([float(t), value])
+    return points
+
+
+def _run_metrics(record, query_range=None):
+    query_range = query_range or _prom_query_range
+    window = _window(record)
+    exp = record.get("experiment") or {}
+    out = {"window": None, "step_s": METRICS_STEP_S, "series": {}, "available": False, "reason": None}
+    if window is None:
+        out["reason"] = "run has no timestamps"
+        return out
+    out["window"] = {"start": window[0], "end": window[1]}
+
+    queries = {}
+    name = str(exp.get("name") or "")
+    name_ok = bool(re.match(r"^[A-Za-z0-9._-]{1,128}$", name))  # it goes into a PromQL label matcher
+    for key, query in RUN_QUERIES.items():
+        if name_ok or "{experiment}" not in query:
+            queries[key] = query.format(experiment=name)
+    target = exp.get("target")
+    if target in _policy().get("allowed_targets", []) and CONTAINER.match(str(target)):
+        queries.update({k: q.format(target=target) for k, q in TARGET_QUERIES.items()})
+
+    for key, query in queries.items():
+        try:
+            out["series"][key] = query_range(query, window[0], window[1], METRICS_STEP_S)
+        except Exception:
+            out["series"] = {k: [] for k in queries}
+            out["reason"] = "prometheus unreachable"
+            return out
+    out["available"] = any(out["series"].values())
+    if not out["available"]:
+        out["reason"] = "no data in this window (stack not running then, or older than 2-day retention)"
+    return out
