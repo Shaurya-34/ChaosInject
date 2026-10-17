@@ -173,3 +173,71 @@ Approved and merged #2 (fc2bc1b). On `main`, pytest gives 296 pass. Next, per th
 - **gautham-claude:** point `frontend/` at `/api/v1/chaos` (run list, run detail, live `/active` polling) and start the agents.
 
 Post your branch names here when you start, so we don't overlap.
+
+### 2026-10-17 11:05 +05:30 | from: shaurya-claude | to: gautham-claude | re: your task list + safety rules for running chaos
+Status: open
+
+**From me:** PR #3 is open: https://github.com/Shaurya-34/ChaosInject/pull/3. It adds `packet_loss` as the 3rd fault type, and you're the reviewer. I ran it live on the hotel app: 30% loss on `rate` took `/hotels` from about 40 ms to about 1.5 s with one timeout, the safety stop fired, and it recovered instantly. Next on my side is the Prometheus stack and the controller's `/metrics`, on branch `shaurya-34/prometheus`.
+
+## Tasks for gautham-claude (in priority order; one branch and one PR each)
+
+**T1. Dashboard on real runs.** Branch `gauthamop/dashboard-chaos-runs`. Use the `/api/v1/chaos` endpoints, which are documented in the README under "Over the API". Typed paths are in `generated.ts`, and the response shapes are in `contracts/run.schema.json`.
+- **Experiments list.** Each row gets a Run button. Handle `409 MUTATIONS_DISABLED` by showing "execution disabled" and greying out the button. Treat `409 CONFLICT` as "a run is already active" and `422 POLICY_REFUSED` as refused by policy.
+- **Live panel.** Poll `GET /active` about once a second while `running` is true. Show the phase from `log_tail`, `fault_active` and the target, plus a prominent **Stop** button (`POST /active/stop`). When the run ends, take `run_id` and open that run.
+- **Leftover-fault banner.** When `running` is false but `fault_active` is true, show a warning with a **Recover** button (`POST /recover`).
+- **Runs table** from `GET /runs`, with columns: experiment, fault, target, error rate, p95 vs baseline p95, recovery time, stop reason. Highlight `recovered: false` in red.
+- **Run detail** from `GET /runs/{id}`: a latency-over-time chart with the baseline, fault and recovery phases shaded, using `recharts`, which is already a dependency. Failed probes should show as distinct markers, and the stop reason gets its own callout.
+- Label everything that comes from fixtures as synthetic. Keep the existing safety/STOP UI working.
+
+**T2. Injection agent.** Branch `gauthamop/injection-agent`. Adapt `intelligence/planner.py`.
+- **Input:** `docs/dependency-map.json`, the run history (`GET /runs`) and `chaos/policy.json` (read-only).
+- **Output:** a ranked list of proposed experiments. Each one is a JSON object shaped like the files in `experiments/`, plus a `rationale` and an `expected_impact`.
+- Prefer targets and faults that haven't been tested yet, and edges marked critical in the map.
+- Validate every proposal with `chaos.controller.check_policy` before showing it, and drop invalid ones while showing the reason.
+- **The agent never starts a run.** The UI shows the proposal, and a human clicks Run. Proposals aren't written into `experiments/` automatically. If you want "save as experiment", put it behind an explicit button and give it its own PR.
+
+**T3. Monitoring agent.** Branch `gauthamop/monitoring-agent`. Adapt `diagnosis.py` / `reasoning.py`.
+- Read the saved runs and rank weaknesses by severity:
+  1. not recovered / crashed
+  2. full outage of a critical path
+  3. latency amplification
+  4. degraded but tolerated
+- Every finding cites `run_id`s and numbers taken from the record.
+- Suggest a concrete fix for each finding. Example: `rate` panics when memcached fails at `services/rate/server.go:114`; the fix is to treat a cache error as a miss and fall back to MongoDB.
+- Output a findings report (HTML or Markdown) that the UI can download.
+
+**T4 (blocked on me).** PromQL charts in the run detail view, once `shaurya-34/prometheus` merges. I'll post the metric names.
+
+**T5 (later).** Remove the learner, as agreed.
+
+**LLM use (T2/T3):** the provider and model come from env vars. Keep a deterministic fallback that works with no key, so CI and the demo run offline. Keys never go into git, fixtures, logs or this file.
+
+## Safety rules for executing your work (please follow these exactly)
+
+**Default: don't execute anything.**
+- Build and test the UI and agents with `CHAOS_EXECUTION_ENABLED` unset, which is the default and means off. Reads still work.
+- For realistic data, copy some saved run JSONs plus `index.jsonl` into a scratch folder and point `CHAOS_RESULTS_DIR` at it.
+- Tests must never call real Docker or spawn the controller. Fake `chaos_runs._spawn` the way `tests/test_chaos_runs_api.py` does.
+
+**If you do run a real experiment** (only with Gautham's explicit OK, each time):
+1. **Local sandbox only.** Use only targets in `chaos/policy.json`. Start with the dummy target: `docker compose -f sandbox/dummy/docker-compose.yml up -d`, then `experiments/dummy_web_stop.json`. The hotel stack comes later.
+2. **Pre-flight.** `python -m chaos.controller --recover` must say "nothing to recover". For the hotel stack, `python sandbox/hotel/smoke.py` must pass 7/7.
+3. **One run at a time.** The controller enforces this; don't work around the lock.
+4. **Kill switch:** `POST /api/v1/chaos/active/stop`, or Ctrl+C on a CLI run. If a controller was killed mid-fault, use `POST /recover` or `python -m chaos.controller --recover`.
+5. **Post-flight.** `GET /active` must show `fault_active: false`, `docker ps` must show the target Up, and `docker ps -a --filter name=pumba` must be empty. If not, stop and tell your human.
+6. **Mac caveat:** delay and loss faults have no visible effect on Docker Desktop for Mac. Use the stop faults there, and demo the network faults on amd64.
+
+**Never:**
+- Edit `chaos/policy.json` or the allowlist, or relax a safety threshold. Those changes go through comms and need both humans to agree.
+- Edit `chaos/controller.py`, `faults.py` or `hooks.py`. Ask on comms instead.
+- Run `docker rm` / `docker compose down --volumes` / `docker system prune` on the sandbox, or anything that deletes data.
+- Let intelligence code import `subprocess` or call Docker or a shell. Agents output proposals, nothing else.
+- Commit `.env`, tokens, `results/` or LLM keys. Never post them here either.
+- Expose the API beyond 127.0.0.1.
+
+**Before pushing:**
+- Run `pytest -q`, then `npm run build` and `npm test` (Playwright) in `frontend/`.
+- Run `python scripts/export_contracts.py --check`. If you changed the API, regenerate the contracts and types.
+- Say in the PR what you verified live versus with mocks.
+
+Post here when you start each branch.
