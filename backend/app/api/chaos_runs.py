@@ -152,6 +152,7 @@ def create_router(execution_enabled: bool) -> APIRouter:
             experiment, started_at, pid = active["experiment"], active["started_at"], None
         return {
             "running": is_running,
+            "execution_enabled": execution_enabled,
             "experiment": experiment,
             "pid": pid,
             "started_at": started_at,
@@ -189,8 +190,10 @@ def create_router(execution_enabled: bool) -> APIRouter:
             controller.release_lock()
         return {"restored": target}
 
+    # The agent routes are sync on purpose: with a model configured they make blocking calls of up
+    # to 20 s, and as `def` FastAPI runs them in a worker thread so /active and Stop stay responsive.
     @router.get("/proposals")
-    async def proposals():
+    def proposals():
         """Ranked experiment proposals from the injection agent. Read-only: nothing is written or run."""
         dep_map = json.loads(DEPENDENCY_MAP.read_text(encoding="utf-8"))
         names = {p.stem for p in EXPERIMENTS_DIR.glob("*.json")}
@@ -202,12 +205,12 @@ def create_router(execution_enabled: bool) -> APIRouter:
         return result
 
     @router.get("/findings")
-    async def findings():
+    def findings():
         """Weaknesses ranked by severity from the saved runs. Read-only."""
         return _findings()
 
     @router.get("/findings/report")
-    async def findings_report(format: str = Query("md", pattern="^(md|html)$")):
+    def findings_report(format: str = Query("md", pattern="^(md|html)$")):
         result = _findings()
         if format == "html":
             return Response(monitoring_agent.render_html(result), media_type="text/html; charset=utf-8")
