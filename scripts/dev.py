@@ -2,22 +2,32 @@
 """Run ChaosInject locally with one command.
 
   python scripts/dev.py setup            # venv + Python deps + dashboard build (once)
-  python scripts/dev.py up [--execute]   # hotel sandbox + observability + API/dashboard
+  python scripts/dev.py up [--execute] [--llm MODEL [--llm-base-url URL]]
+                                         # hotel sandbox + observability + API/dashboard
   python scripts/dev.py status
   python scripts/dev.py down [--force]   # stops everything; data volumes are kept
 
 Stdlib only, so `setup` works before the venv exists. Every port stays on 127.0.0.1.
+
+--llm MODEL turns on language-model explanations (docs/llm.md). The endpoint is any OpenAI-compatible API and
+has no default: set LLM_BASE_URL (Groq: https://api.groq.com/openai/v1; local Ollama:
+http://127.0.0.1:11434/v1) in the shell, in a git-ignored .env, or with --llm-base-url. A hosted endpoint needs
+a key: LLM_API_KEY (or GROQ_KEY) from the environment, else from the .env file. The key is never taken from an
+argument and never written to disk, logs or output; it goes only into the API process's environment.
 """
 import argparse
 import json
 import os
+import re
 import secrets
 import signal
 import socket
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +41,7 @@ OBS = ROOT / "sandbox/observability/compose.yaml"
 STATE = ROOT / ".dev/api.json"
 LOG = ROOT / ".dev/api.log"
 API_PORT = 8000
+ENV_FILE = ROOT / ".env"
 HOTELS_URL = "http://127.0.0.1:5000/hotels?inDate=2015-04-09&outDate=2015-04-10&lat=37.7749&lon=-122.4194"
 
 
@@ -77,6 +88,100 @@ def api_state():
     return state if pid_alive(state["pid"]) else None
 
 
+def parse_env_file(text):
+    """KEY=value lines: spaces around '=', optional `export`, quotes, blank lines and # comments are tolerated."""
+    values = {}
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        if line.startswith("export "):
+            line = line[len("export "):].lstrip()
+        name, _, value = line.partition("=")
+        name, value = name.strip(), value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        else:
+            value = re.split(r"\s+#", value, maxsplit=1)[0].strip()
+        if name:
+            values[name] = value
+    return values
+
+
+def env_file_is_ignored(path=ENV_FILE):
+    """True only if git says the file is ignored (so a key in it can never be committed)."""
+    return subprocess.run(["git", "check-ignore", "-q", str(path)], cwd=ROOT, capture_output=True).returncode == 0
+
+
+def llm_settings(environ, base_url_flag=None, env_path=None, ignored=None):
+    """Base URL and key: environment first, then a git-ignored .env. Returns the key only in memory."""
+    env_path, ignored = env_path or ENV_FILE, ignored or env_file_is_ignored
+    file_values = {}
+    if env_path.exists():
+        wanted = ("LLM_API_KEY", "GROQ_KEY", "LLM_BASE_URL")
+        if any(not environ.get(name) for name in wanted):
+            if not ignored(env_path):
+                raise SystemExit("Refusing to read .env: git does not ignore it, so a key in it could be committed. "
+                                 "Add `.env` to .gitignore first.")
+            file_values = parse_env_file(env_path.read_text(encoding="utf-8"))
+
+    def pick(*names):
+        for name in names:
+            if environ.get(name):
+                return environ[name], "environment"
+        for name in names:
+            if file_values.get(name):
+                return file_values[name], ".env"
+        return "", None
+
+    key, key_source = pick("LLM_API_KEY", "GROQ_KEY")
+    base_url = base_url_flag or pick("LLM_BASE_URL")[0]
+    return {"base_url": base_url, "key": key, "key_source": key_source}
+
+
+def _llm_location(base_url):
+    return "local" if (urlparse(base_url).hostname or "") in ("127.0.0.1", "localhost", "::1") else "hosted"
+
+
+def check_llm(model, base_url, api_key="", opener=urllib.request.urlopen):
+    """Fail early, with a clear message, if the model endpoint cannot be used. Returns its location."""
+    location = _llm_location(base_url)
+
+    def get(url, headers=None):
+        request = urllib.request.Request(url, headers=headers or {})
+        with opener(request, timeout=8) as response:
+            return json.loads(response.read().decode("utf-8"))
+
+    if location == "local":
+        root = base_url.rstrip("/")
+        root = root[: -len("/v1")] if root.endswith("/v1") else root
+        try:
+            names = [m.get("name", "") for m in get(root + "/api/tags").get("models", [])]
+        except (OSError, ValueError):
+            raise SystemExit(f"No language model server answers at {base_url}. Install Ollama, start it "
+                             f"(`ollama serve`), then `ollama pull {model}`. See docs/llm.md.") from None
+        if not any(n == model or n == f"{model}:latest" or n.split(":")[0] == model for n in names):
+            raise SystemExit(f"Ollama is running but the model {model!r} is not pulled. Run: ollama pull {model}")
+        return location
+    if urlparse(base_url).scheme != "https":
+        raise SystemExit(f"A hosted LLM endpoint must use https, got {base_url}")
+    if not api_key:
+        raise SystemExit(f"LLM_API_KEY is not set. Export it in this shell first (never pass it as an argument), "
+                         f"then run the command again. Host: {urlparse(base_url).netloc}")
+    try:
+        data = get(base_url.rstrip("/") + "/models", {"Authorization": "Bearer " + api_key})
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            raise SystemExit(f"{urlparse(base_url).netloc} rejected the API key (HTTP {e.code}). Check LLM_API_KEY.") from None
+        raise SystemExit(f"{urlparse(base_url).netloc} answered HTTP {e.code} when listing models.") from None
+    except (OSError, ValueError):
+        raise SystemExit(f"Could not reach {urlparse(base_url).netloc} to check the model. Check the network and LLM_BASE_URL.") from None
+    ids = [m.get("id", "") for m in data.get("data", [])]
+    if ids and model not in ids:
+        raise SystemExit(f"{urlparse(base_url).netloc} does not offer the model {model!r}. Some it offers: {', '.join(ids[:6])}")
+    return location
+
+
 def setup(_):
     if not VENV_PY.exists():
         run(sys.executable, "-m", "venv", ROOT / ".venv")
@@ -87,11 +192,15 @@ def setup(_):
     print("\nSetup done. Next: python scripts/dev.py up --execute")
 
 
-def start_api(execute):
+def start_api(execute, llm=None):  # llm may carry the key; it goes only into the API process environment
     if port_in_use(API_PORT):
         raise SystemExit(f"Port {API_PORT} is already in use by another process; stop it first")
     token = secrets.token_urlsafe(32)
     env = {**os.environ, "OPERATOR_TOKEN": token, "CHAOS_EXECUTION_ENABLED": "true" if execute else "false"}
+    if llm:  # LLM_API_KEY, if any, is inherited from this process's environment and goes nowhere else
+        env.update(INTELLIGENCE_REASONING_MODE="live", INTELLIGENCE_LIVE_MODEL=llm["model"], LLM_BASE_URL=llm["base_url"])
+        if llm.get("key"):
+            env["LLM_API_KEY"] = llm["key"]
     LOG.parent.mkdir(exist_ok=True)
     detach = ({"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS}
               if os.name == "nt" else {"start_new_session": True})
@@ -100,11 +209,26 @@ def start_api(execute):
             [str(VENV_PY), "-m", "uvicorn", "app.main:create_app", "--factory", "--app-dir", "backend",
              "--host", "127.0.0.1", "--port", str(API_PORT)],
             cwd=ROOT, env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, **detach)
-    STATE.write_text(json.dumps({"pid": process.pid, "token": token, "execute": execute}))
+    STATE.write_text(json.dumps({"pid": process.pid, "token": token, "execute": execute,
+                                 "llm": llm and {"model": llm["model"], "base_url": llm["base_url"],
+                                                 "key_set": bool(llm.get("key")), "key_source": llm.get("key_source")}}))
     wait_for("API + dashboard", f"http://127.0.0.1:{API_PORT}/", 60)  # /api/* needs the token
 
 
 def up(args):
+    llm = None
+    if args.llm:
+        cfg = llm_settings(os.environ, args.llm_base_url)
+        base_url = cfg["base_url"]
+        if not base_url:
+            raise SystemExit("--llm needs LLM_BASE_URL: Groq https://api.groq.com/openai/v1, or a local Ollama "
+                             "http://127.0.0.1:11434/v1. Set it in the shell, in a git-ignored .env (see .env.example), "
+                             "or pass --llm-base-url.")
+        location = check_llm(args.llm, base_url, cfg["key"])
+        llm = {"model": args.llm, "base_url": base_url, "location": location, "key": cfg["key"], "key_source": cfg["key_source"]}
+        where = "on this machine" if location == "local" else f"at {urlparse(base_url).netloc}"
+        print(f"LLM explanations: {args.llm} {where}."
+              + ("" if location == "local" else " Run summaries (ids, targets, numbers) are sent there when you open Findings or Suggested experiments."))
     if not VENV_PY.exists() or not (ROOT / "frontend/dist/index.html").exists():
         raise SystemExit("Run `python scripts/dev.py setup` first")
     if subprocess.run(["docker", "info"], capture_output=True).returncode:
@@ -119,8 +243,10 @@ def up(args):
     state = api_state()
     if state and state["execute"] != args.execute:
         raise SystemExit("The API is already running with a different --execute setting; run `down` first")
+    if state and (state.get("llm") or {}).get("model") != (llm or {}).get("model"):
+        raise SystemExit("The API is already running with a different --llm setting; run `down` first")
     if not state:
-        start_api(args.execute)
+        start_api(args.execute, llm)
     status(args)
 
 
@@ -155,6 +281,11 @@ def stack(label, file):
     return f"{label}: {running}/{len(rows)} containers running"
 
 
+def llm_label(base_url):
+    host = urlparse(base_url).hostname or "endpoint"
+    return "groq" if host.endswith("groq.com") else host
+
+
 def status(_):
     print(stack("hotel sandbox", HOTEL))
     print(stack("observability", OBS))
@@ -165,6 +296,10 @@ def status(_):
         print("operator token:", state["token"])
         print("execution:", "ENABLED (real faults on the sandbox)" if state["execute"]
               else "disabled (start with `up --execute` to run experiments)")
+        llm = state.get("llm")
+        print("explanations:", (f"LLM {llm['model']} via {llm_label(llm['base_url'])}"
+                                + (f", key set (from {llm['key_source']})" if llm.get("key_set") else ""))
+              if llm else "rule-based (start with `up --llm MODEL` for model-written text)")
     else:
         print("API: not running")
     run_lock = read_lock()
@@ -177,6 +312,8 @@ def main():
     commands.add_parser("setup").set_defaults(func=setup)
     p_up = commands.add_parser("up")
     p_up.add_argument("--execute", action="store_true", help="allow the dashboard to inject real faults")
+    p_up.add_argument("--llm", metavar="MODEL", help="model-written explanations via an OpenAI-compatible API (docs/llm.md)")
+    p_up.add_argument("--llm-base-url", metavar="URL", help="default: LLM_BASE_URL from the environment or .env; Groq: https://api.groq.com/openai/v1")
     p_up.set_defaults(func=up)
     p_down = commands.add_parser("down")
     p_down.add_argument("--force", action="store_true", help="stop even if a chaos run is in progress")

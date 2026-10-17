@@ -26,16 +26,18 @@ export type ActiveRun={
 
 export type Proposal={
   experiment:{name:string;target:string;fault:string;duration_s:number;[k:string]:unknown};
-  rationale:string;expected_impact:string;affected_endpoints:string[];times_run:number;score:number;rationale_source:string;
+  rationale:string;expected_impact:string;affected_endpoints:string[];times_run:number;score:number;rationale_source:string;rationale_model?:string|null;
 };
-export type Proposals={proposals:Proposal[];rejected:{target:string;fault:string;reason:string}[];limitations:string[]};
+/** Where the model-written text comes from (mode is deterministic when no language model is configured). */
+export type LlmInfo={mode:string;model:string|null;location:string|null};
+export type Proposals={proposals:Proposal[];rejected:{target:string;fault:string;reason:string}[];limitations:string[];llm?:LlmInfo};
 
 export type Finding={
   id:string;severity:number;severity_label:string;title:string;target:string;fault:string;affected_endpoints:string[];
-  explanation:string;suggested_fix:string;run_ids:string[];explanation_source:string;
+  explanation:string;suggested_fix:string;run_ids:string[];explanation_source:string;explanation_model?:string|null;
   evidence:{run_id:string;stop_reason:string|null;recovered:boolean|null;recovery_s:number|null;baseline_p95_ms:number|null;during_p95_ms:number|null;during_error_rate:number|null}[];
 };
-export type Findings={findings:Finding[];runs_analyzed:number;runs_without_findings:number;runs_not_evaluated:number;limitations:string[]};
+export type Findings={findings:Finding[];runs_analyzed:number;runs_without_findings:number;runs_not_evaluated:number;limitations:string[];llm?:LlmInfo};
 
 /** GET /runs/{id}/metrics: named Prometheus series over the run window (docs/observability.md). */
 export type RunMetrics={
@@ -69,6 +71,13 @@ export async function chaos<T>(path:string,method:'GET'|'POST'='GET'):Promise<T>
     throw new ChaosApiError(response.status,body.code??'UNKNOWN',body.message??'Service unavailable');
   }
   return response.json();
+}
+
+/** Label for the source of an explanation: the model that wrote it, or the rule-based text. */
+export function explainedBy(source:string|undefined,model:string|null|undefined,location?:string|null):string{
+  if(!source||source==='deterministic'||!model)return 'Rule-based explanation';
+  const where=location==='local'?'local':location==='hosted'?'hosted':source;
+  return `Explained by ${model} (${where})`;
 }
 
 /** Human wording for a refused start/stop/recover call. */

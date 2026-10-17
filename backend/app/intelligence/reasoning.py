@@ -89,6 +89,7 @@ class LiveProvider:
     transport: Transport
     model_id: str
     mode: Literal["live"] = "live"
+    location: str | None = None  # "local" (loopback, e.g. Ollama) or "hosted"; None when unknown
 
     def complete(self, system: str, user: str, max_tokens: int, timeout_s: float) -> str:
         return self.transport(system, user, max_tokens, timeout_s)
@@ -108,9 +109,16 @@ def provider_from_env(transport: Transport | None = None) -> tuple[ReasoningProv
     mode = os.environ.get("INTELLIGENCE_REASONING_MODE", "deterministic").strip().lower()
     if mode == "live":
         model = os.environ.get("INTELLIGENCE_LIVE_MODEL", "").strip()
-        if not model or transport is None:
-            return DeterministicProvider(), ["Live reasoning requested but no model/transport is configured; deterministic mode used."]
-        return LiveProvider(transport=transport, model_id=model), []
+        if not model:
+            return DeterministicProvider(), ["Live reasoning requested but INTELLIGENCE_LIVE_MODEL is not set; rule-based explanations are shown."]
+        location = None
+        if transport is None:
+            from .llm_transport import transport_from_env  # lazy: only the live path needs httpx
+
+            transport, location, notes = transport_from_env()
+            if transport is None:
+                return DeterministicProvider(), notes
+        return LiveProvider(transport=transport, model_id=model, location=location), []
     if mode == "mock":
         return MockProvider([]), ["Mock reasoning provider configured; outputs are fixtures, not model reasoning."]
     return DeterministicProvider(), []

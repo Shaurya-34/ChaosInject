@@ -11,6 +11,7 @@ breached, always restores the fault, and explains which weaknesses to fix first.
 - **Dashboard:** start and stop experiments, watch them live, inspect every run with Prometheus charts.
 - **Agents:** an injection agent proposes the next experiments from the dependency map and past runs;
   a monitoring agent turns runs into ranked findings and an HTML report. They recommend; they never execute.
+  Rule-based, with an optional LLM (Groq or a local Ollama) for the explanation text: [docs/llm.md](docs/llm.md).
 - **Safety first:** allowlisted targets and faults only, a hard timeout, a kill switch, and a
   restore that runs even if the run fails.
 

@@ -18,7 +18,7 @@ from fastapi import APIRouter, Query
 from fastapi.responses import Response
 
 from app.api.errors import PortError
-from app.intelligence import injection_agent, monitoring_agent, resilience_score
+from app.intelligence import injection_agent, llm_transport, monitoring_agent, resilience_score
 from app.intelligence.reasoning import provider_from_env
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -84,6 +84,19 @@ def _load_runs():
     return out
 
 
+def _llm_cache():
+    return llm_transport.ExplanationCache(hooks.RESULTS_DIR / ".llm_cache")
+
+
+def _note_llm(result, provider, limitations, items, source_key):
+    """Say where the explanations came from, and why if a configured model did not supply them."""
+    from_model = sum(1 for item in items if item.get(source_key) == provider.mode)
+    note = llm_transport.fallback_limitation(provider.mode, len(items), from_model)
+    result["limitations"] = limitations + ([note] if note else [])
+    result["llm"] = {"mode": provider.mode, "model": getattr(provider, "model_id", None),
+                     "location": getattr(provider, "location", None)}
+
+
 def _score(runs=None):
     dep_map = json.loads(DEPENDENCY_MAP.read_text(encoding="utf-8"))
     return resilience_score.compute(_load_runs() if runs is None else runs, dep_map, _policy())
@@ -95,8 +108,8 @@ def _findings():
     result = monitoring_agent.analyze(runs, dep_map)
     result["score"] = resilience_score.compute(runs, dep_map, _policy())
     provider, limitations = provider_from_env()
-    result["findings"] = monitoring_agent.enrich_explanations(result["findings"], provider)
-    result["limitations"] = limitations
+    result["findings"] = monitoring_agent.enrich_explanations(result["findings"], provider, cache=_llm_cache())
+    _note_llm(result, provider, limitations, result["findings"], "explanation_source")
     return result
 
 
@@ -207,8 +220,8 @@ def create_router(execution_enabled: bool) -> APIRouter:
         names |= {json.loads(p.read_text(encoding="utf-8")).get("name", "") for p in EXPERIMENTS_DIR.glob("*.json")}
         result = injection_agent.propose(dep_map, hooks.list_results(), _policy(), existing_experiments=names)
         provider, limitations = provider_from_env()
-        result["proposals"] = injection_agent.enrich_rationales(result["proposals"], provider)
-        result["limitations"] = limitations
+        result["proposals"] = injection_agent.enrich_rationales(result["proposals"], provider, cache=_llm_cache())
+        _note_llm(result, provider, limitations, result["proposals"], "rationale_source")
         return result
 
     @router.get("/score")
