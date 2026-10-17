@@ -24,9 +24,9 @@ def planned(c):
 def test_auth_cors_body_limit_and_safe_errors(client):
     assert client.get('/api/v1/state',headers={'Authorization':'bad'}).status_code==401
     assert client.post('/api/v1/emergency-stop',headers={'Origin':'https://evil.example'},json={}).status_code==403
-    assert client.post('/api/v1/sql/analyze',content=b'x'*65537).status_code==413
-    secret='PRIVATE_SQL_LITERAL'
-    r=client.post('/api/v1/sql/analyze',json={'sql':secret,'parameters':{},'unexpected':secret})
+    assert client.post('/api/v1/emergency-stop',content=b'x'*65537).status_code==413
+    secret='PRIVATE_LITERAL'
+    r=client.post('/api/v1/experiments/x/approve',json={'proposal_hash':'0'*64,'unexpected':secret})
     assert r.status_code==422 and secret not in r.text
     assert 'correlation_id' in r.json()
 
@@ -69,16 +69,11 @@ def test_expiry_stop_latch_and_reconciliation(client):
     assert not client.post('/api/v1/experiments/validate',json=p).json()['valid']
     assert client.post('/api/v1/safety/reset',json={}).status_code==200
 
-def test_reports_values_and_no_sql_echo(client):
+def test_reports_values(client):
     r=client.get('/api/v1/reports/fixture-run')
     assert r.status_code==200
     s=load('summary',RunSummary)
     assert s.evidence_hash in r.text and '580.0' in r.text and 'fixture' in r.text
-    secret='SELECT VERY_PRIVATE_LITERAL'
-    d=client.post('/api/v1/sql/analyze',json={'sql':secret,'parameters':{'x':'SECRET_PARAMETER'}})
-    assert d.json()['decision']=='BLOCK' and d.json()['intent_id'] is None
-    assert secret not in d.text and 'SECRET_PARAMETER' not in d.text
-    assert client.post('/api/v1/sql/execute-approved',json={'token':'x'},headers={'Idempotency-Key':'x'}).status_code==409
 
 def test_live_missing_modules_fails_closed(monkeypatch):
     monkeypatch.delenv('LIVE_PORTS_FACTORY',raising=False)
@@ -91,10 +86,10 @@ def test_provenance_mismatch_refused(client):
     assert client.get('/api/v1/state').status_code==503
 
 def test_dependency_exception_does_not_echo_private_data(client,caplog):
-    async def broken(request,state,estimator): raise RuntimeError('PRIVATE_INPUT_MUST_NOT_ESCAPE')
-    client.app.state.ports.intelligence.analyze_query=broken
-    r=client.post('/api/v1/sql/analyze',json={'sql':'SECRET_SQL'})
-    assert r.status_code==503 and 'PRIVATE_INPUT' not in r.text and 'SECRET_SQL' not in r.text
+    async def broken(*args): raise RuntimeError('PRIVATE_INPUT_MUST_NOT_ESCAPE')
+    client.app.state.ports.intelligence.get_learning_status=broken
+    r=client.get('/api/v1/learning/status')
+    assert r.status_code==503 and 'PRIVATE_INPUT' not in r.text
     assert 'PRIVATE_INPUT' not in caplog.text
 
 def test_restart_learning_and_actions_disabled(client):

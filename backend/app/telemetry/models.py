@@ -259,62 +259,6 @@ class SystemStateSnapshot(Exported):
 
 
 # --------------------------------------------------------------------------
-# plan estimation
-# --------------------------------------------------------------------------
-
-
-class PlanEstimate(Exported):
-    """Sanitised numeric summary of a PostgreSQL plan.
-
-    Contains **no** SQL, no bound parameters and no raw plan expressions. The
-    source statement, its parameters and the raw plan JSON are transient and
-    discarded once this object is built.
-
-    ``planner_cost`` is PostgreSQL's abstract cost unit. It is **not** a duration
-    and must never be presented as milliseconds.
-
-    ``max_node_estimated_rows`` exists because a top-level aggregate can return
-    one row while scanning millions; resource risk follows the largest scanned
-    node, not the output row count.
-    """
-
-    request_id: str
-    source: Source
-    captured_at: datetime
-    plan_source: Literal["explain_json", "unavailable"]
-    estimated_rows: Finite | None = Field(default=None, ge=0)
-    estimated_width_bytes: Finite | None = Field(default=None, ge=0)
-    estimated_output_bytes: Finite | None = Field(default=None, ge=0)
-    planner_cost: Finite | None = Field(default=None, ge=0)
-    max_node_estimated_rows: Finite | None = Field(default=None, ge=0)
-    node_categories: list[str] = Field(default_factory=list)
-    stats_quality: Literal["fresh", "stale", "unknown"] = "unknown"
-    uncertainty: list[str] = Field(default_factory=list)
-    estimation_error: str | None = Field(
-        default=None,
-        description="Redacted failure class only; never driver text or statement content.",
-    )
-
-    @model_validator(mode="after")
-    def _unavailable_has_no_numbers(self) -> "PlanEstimate":
-        if self.plan_source == "unavailable":
-            numeric = (
-                self.estimated_rows,
-                self.estimated_width_bytes,
-                self.estimated_output_bytes,
-                self.planner_cost,
-                self.max_node_estimated_rows,
-            )
-            if any(v is not None for v in numeric):
-                raise ValueError(
-                    "an unavailable plan estimate must not carry numeric estimates"
-                )
-            if not self.uncertainty:
-                raise ValueError("an unavailable plan estimate must record a reason")
-        return self
-
-
-# --------------------------------------------------------------------------
 # learning channel
 # --------------------------------------------------------------------------
 
@@ -511,7 +455,6 @@ __all__ = [
     "Outcome",
     "Phase",
     "PhaseSummary",
-    "PlanEstimate",
     "ReadyState",
     "RecoveryStatus",
     "ResilienceScore",

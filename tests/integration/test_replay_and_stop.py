@@ -34,7 +34,6 @@ def test_replay_is_read_only_and_rejects_hash_tamper(tmp_path):
     with TestClient(create_app(Settings(mode='replay',operator_token=TOKEN),ports),headers={'Authorization':'Bearer '+TOKEN}) as c:
         assert c.get('/api/v1/runs/fixture-run').json()['source']=='replay'
         assert c.post('/api/v1/emergency-stop',json={}).status_code==409
-        assert c.post('/api/v1/sql/analyze',json={'sql':'SELECT 1'}).status_code==409
         assert c.get('/api/v1/reports/fixture-run').status_code==200
     b['summary']['recovery_seconds']=99;path.write_text(json.dumps(b),encoding='utf-8')
     with pytest.raises(Exception): replay_ports(path)

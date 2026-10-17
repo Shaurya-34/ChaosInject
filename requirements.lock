@@ -18,7 +18,6 @@ narwhals==2.27.1
 numpy==2.5.3
 opentelemetry-api==1.45.1
 packaging==26.3
-pglast==8.5
 pluggy==1.6.0
 pydantic==2.11.5
 pydantic-core==2.33.2

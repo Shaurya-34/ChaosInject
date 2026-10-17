@@ -17,12 +17,6 @@ test('real HTTP target stays healthy; injection is blocked and popup is shown',a
  await expect(page.getByText('STOP LATCHED',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Check duration'})).toBeDisabled();
  await page.getByRole('button',{name:'Reset demo after health check'}).click();await expect(page.getByRole('button',{name:'Check duration'})).toBeEnabled();
 });
-test('SQL input clears and is never echoed as execution evidence',async({page})=>{
- await page.goto('/');await page.getByLabel('Operator token').fill(token);await page.getByRole('button',{name:'Connect workspace'}).click();
- await page.getByRole('button',{name:'Operations',exact:true}).click();await page.getByRole('button',{name:'Guarded SQL'}).click();
- const editor=page.getByLabel('Transient query editor');await editor.fill('SELECT PRIVATE_TRANSIENT_VALUE');await page.getByRole('button',{name:'Analyze query'}).click();
- await expect(editor).toHaveValue('');await expect(page.getByText(/Rules: SQL-.*Executed: no/)).toBeVisible();expect(await page.locator('body').innerText()).not.toContain('PRIVATE_TRANSIENT_VALUE');
-});
 test('small-screen layout keeps STOP and demo button reachable',async({page})=>{
  await page.setViewportSize({width:390,height:844});await page.goto('/');await page.getByLabel('Operator token').fill(token);await page.getByRole('button',{name:'Connect workspace'}).click();
  await expect(page.getByRole('button',{name:'Emergency STOP'})).toBeVisible();await expect(page.getByRole('button',{name:'Check duration'})).toBeVisible();

@@ -13,7 +13,7 @@ from app.intelligence.features import FEATURE_NAMES, sanitize_features
 from app.intelligence.learner import LearnerConfig, StreamingLearner
 from app.intelligence.service import IntelligenceService
 
-from .helpers import Req, run
+from .helpers import run
 
 _n = 0
 
@@ -218,16 +218,15 @@ def test_long_stream_memory_plateaus():
     assert learner.diagnostics()["counters"]["coverage_overflow"] > 0
 
 
-def test_restart_clears_state_and_writes_no_files(tmp_path, monkeypatch, allow):
+def test_restart_clears_state_and_writes_no_files(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    svc = IntelligenceService(allow, learner=StreamingLearner(source="fixture"))
-    est = fakes.FakePlanEstimator(allow)
+    svc = IntelligenceService(learner=StreamingLearner(source="fixture"))
     for i in range(50):
-        run(svc.analyze_query(Req("SELECT id FROM lab.products WHERE id = $1", {"1": i}), fakes.state(), est))
+        svc.learner.register_arrival(f"req_{i}", {"log_est_rows": 1.0}, "fixture")
     assert run(svc.get_learning_status()).pending_count == 50
     assert os.listdir(tmp_path) == []
 
-    restarted = IntelligenceService(allow, learner=StreamingLearner(source="fixture"))
+    restarted = IntelligenceService(learner=StreamingLearner(source="fixture"))
     status = run(restarted.get_learning_status())
     assert status.pending_count == 0 and status.updates == 0 and status.processed == 0
 

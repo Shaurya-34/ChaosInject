@@ -433,74 +433,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/sql/analyze": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Analyze Query */
-        post: operations["analyze_query_api_v1_sql_analyze_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/sql/execute-approved": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Execute Query */
-        post: operations["execute_query_api_v1_sql_execute_approved_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/sql/intents/{intent_id}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Approve Query */
-        post: operations["approve_query_api_v1_sql_intents__intent_id__approve_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/sql/jobs/{job_id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Cancel Query */
-        post: operations["cancel_query_api_v1_sql_jobs__job_id__cancel_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/state": {
         parameters: {
             query?: never;
@@ -681,39 +613,6 @@ export interface components {
              * @constant
              */
             schema_version: "1.0";
-        };
-        /** BoundedReadHandle */
-        BoundedReadHandle: {
-            /** Byte Budget */
-            byte_budget: number;
-            /** Duration Ms */
-            duration_ms: number | null;
-            /** Job Id */
-            job_id: string;
-            /** Output Bytes */
-            output_bytes: number | null;
-            /** Output Rows */
-            output_rows: number | null;
-            /** Row Budget */
-            row_budget: number;
-            /**
-             * Schema Version
-             * @default 1.0
-             * @constant
-             */
-            schema_version: "1.0";
-            /**
-             * Source
-             * @enum {string}
-             */
-            source: "live" | "fixture" | "replay";
-            /**
-             * State
-             * @enum {string}
-             */
-            state: "QUEUED" | "RUNNING" | "COMPLETED" | "CANCELLED" | "TRUNCATED" | "FAILED";
-            /** Time Budget Seconds */
-            time_budget_seconds: number;
         };
         /** Catalog */
         Catalog: {
@@ -949,17 +848,6 @@ export interface components {
              */
             schema_version: "1.0";
         };
-        /** ExecuteRequest */
-        ExecuteRequest: {
-            /**
-             * Schema Version
-             * @default 1.0
-             * @constant
-             */
-            schema_version: "1.0";
-            /** Token */
-            token: string;
-        };
         /** ExperimentProposal */
         ExperimentProposal: {
             abort_limits: components["schemas"]["AbortLimits"];
@@ -1095,28 +983,6 @@ export interface components {
              * @enum {string}
              */
             status: "ready" | "degraded";
-        };
-        /** IntentHandle */
-        IntentHandle: {
-            /** Actor Ref */
-            actor_ref: string;
-            /** Decision Id */
-            decision_id: string;
-            /**
-             * Expires At
-             * Format: date-time
-             */
-            expires_at: string;
-            /** Intent Id */
-            intent_id: string;
-            /**
-             * Schema Version
-             * @default 1.0
-             * @constant
-             */
-            schema_version: "1.0";
-            /** Target Id */
-            target_id: string;
         };
         /** LearningFeatures */
         LearningFeatures: {
@@ -1348,44 +1214,6 @@ export interface components {
              */
             started_at: string;
         };
-        /** PlanEstimate */
-        PlanEstimate: {
-            /**
-             * Captured At
-             * Format: date-time
-             */
-            captured_at: string;
-            /** Estimated Output Bytes */
-            estimated_output_bytes: number | null;
-            /** Estimated Rows */
-            estimated_rows: number | null;
-            /** Estimated Width Bytes */
-            estimated_width_bytes: number | null;
-            /** Node Categories */
-            node_categories: string[];
-            /**
-             * Plan Source
-             * @enum {string}
-             */
-            plan_source: "explain_json" | "fixture" | "unavailable";
-            /** Planner Cost */
-            planner_cost: number | null;
-            /** Request Id */
-            request_id: string;
-            /**
-             * Schema Version
-             * @default 1.0
-             * @constant
-             */
-            schema_version: "1.0";
-            /**
-             * Stats Quality
-             * @enum {string}
-             */
-            stats_quality: "fresh" | "stale" | "unknown" | "fixture";
-            /** Uncertainty */
-            uncertainty: string[];
-        };
         /** Prediction */
         Prediction: {
             /** Cold Start */
@@ -1409,72 +1237,6 @@ export interface components {
              * @constant
              */
             schema_version: "1.0";
-        };
-        /** QueryDecision */
-        QueryDecision: {
-            /**
-             * Decision
-             * @enum {string}
-             */
-            decision: "ALLOW" | "WARN" | "BLOCK";
-            /** Decision Id */
-            decision_id: string;
-            /**
-             * Executed
-             * @default false
-             * @constant
-             */
-            executed: false;
-            /**
-             * Intent Id
-             * @default null
-             */
-            intent_id: string | null;
-            plan_estimate: components["schemas"]["PlanEstimate"] | null;
-            /** Policy Version */
-            policy_version: string;
-            prediction: components["schemas"]["Prediction"] | null;
-            /** Reasons */
-            reasons: string[];
-            /** Recommendations */
-            recommendations: string[];
-            /** Request Id */
-            request_id: string;
-            /** Rule Ids */
-            rule_ids: string[];
-            /**
-             * Schema Version
-             * @default 1.0
-             * @constant
-             */
-            schema_version: "1.0";
-            /**
-             * Source
-             * @enum {string}
-             */
-            source: "live" | "fixture" | "replay";
-            /** State Id */
-            state_id: string;
-        };
-        /** QueryRequest */
-        QueryRequest: {
-            /** Parameters */
-            parameters?: {
-                [key: string]: string | number | boolean | null;
-            };
-            /**
-             * Schema Version
-             * @default 1.0
-             * @constant
-             */
-            schema_version: "1.0";
-            /** Sql */
-            sql: string;
-            /**
-             * Target Id
-             * @default inventory-lab
-             */
-            target_id: string;
         };
         /** Readiness */
         Readiness: {
@@ -1682,22 +1444,6 @@ export interface components {
             schema_version: "1.0";
             /** Total */
             total: number | null;
-        };
-        /** SingleUseToken */
-        SingleUseToken: {
-            /**
-             * Expires At
-             * Format: date-time
-             */
-            expires_at: string;
-            /**
-             * Schema Version
-             * @default 1.0
-             * @constant
-             */
-            schema_version: "1.0";
-            /** Token */
-            token: string;
         };
         /** StartRequest */
         StartRequest: {
@@ -2682,136 +2428,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CleanupSummary"];
-                };
-            };
-        };
-    };
-    analyze_query_api_v1_sql_analyze_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["QueryRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QueryDecision"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    execute_query_api_v1_sql_execute_approved_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "idempotency-key"?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ExecuteRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BoundedReadHandle"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    approve_query_api_v1_sql_intents__intent_id__approve_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                intent_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SingleUseToken"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    cancel_query_api_v1_sql_jobs__job_id__cancel_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                job_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BoundedReadHandle"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

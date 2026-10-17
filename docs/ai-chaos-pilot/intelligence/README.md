@@ -1,5 +1,7 @@
 # Intelligence workstream (Gautam)
 
+> **Removed (gauthamop/drop-sql-guard):** the SQL AST guard (`sql_ast.py`), query advice, query policy, the PostgreSQL plan estimator and the `/api/v1/sql/*` routes were dropped as off-topic for ChaosInject. Sections below that describe them are historical. The learner is kept for now; it is a candidate for rework around run data.
+
 This workstream covers the SQL guard and query policy, the streaming learner, the experiment planner, evidence-grounded diagnosis and advice, the reasoning adapters, and a disabled interface for the Day 2 rollback proposals.
 
 | Location | Contents |

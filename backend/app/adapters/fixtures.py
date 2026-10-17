@@ -35,7 +35,6 @@ class FixtureIntelligence:
     def __init__(self): self.started = now()
     async def plan(self, topology, state, catalog, coverage):
         return [load("proposal", ExperimentProposal).model_copy(update={"expires_at": now() + timedelta(seconds=60)})]
-    async def analyze_query(self, transient_request, state, estimator):
         return QueryDecision(source="fixture", decision_id=new_id(), request_id=new_id(), decision="BLOCK", rule_ids=["MODULE_NOT_INTEGRATED"], policy_version="fixture-only", state_id=state.state_id, plan_estimate=None, prediction=None, reasons=["SQL policy and estimator are not connected. No candidate was executed or planned."], recommendations=["Connect Gautam's policy and Navya's estimator before live analysis."])
     async def analyze_run(self, summary, topology):
         a = load("analysis", AnalysisResult)
@@ -131,10 +130,6 @@ class FakeRuntime:
         r = await self.reconcile(sandbox_id)
         if r.unresolved_run_ids: raise PortError("CONFLICT")
         self.latched = False; return r
-    async def stage_query(self, transient_request, decision, actor): raise PortError("SQL_UNAVAILABLE")
-    async def approve_query(self, intent_id, actor): raise PortError("SQL_UNAVAILABLE")
-    async def execute_query(self, token, actor, idempotency_key): raise PortError("SQL_UNAVAILABLE")
-    async def cancel_query(self, job_id, actor): raise PortError("SQL_UNAVAILABLE")
 
 def fixture_ports(enabled=False, delay=0.05):
     t = FixtureTelemetry()

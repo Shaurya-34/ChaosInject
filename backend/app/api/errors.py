@@ -13,7 +13,6 @@ MESSAGES = {
     "HASH_MISMATCH": "Exact proposal approval is required.",
     "APPROVAL_REQUIRED": "An unconsumed actor-bound approval is required.",
     "STOP_LATCHED": "STOP is latched; reconcile before resetting.",
-    "SQL_UNAVAILABLE": "Bounded SQL execution is not integrated.",
     "REPLAY_READ_ONLY": "Replay data is read-only.",
     "RATE_LIMIT": "Too many requests; try again shortly.",
     "BODY_TOO_LARGE": "Request exceeds the 64 KiB limit.",

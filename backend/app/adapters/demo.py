@@ -124,21 +124,6 @@ class DemoAdapter:
     async def reset(self, sandbox_id, actor):
         return await self.guard.reset(sandbox_id, actor)
 
-    async def analyze_query(self, transient_request, state, estimator):
-        return QueryDecision(
-            source="live",
-            decision_id=str(uuid4()),
-            request_id=str(uuid4()),
-            decision="BLOCK",
-            rule_ids=["MODULE_NOT_INTEGRATED"],
-            policy_version="demo-only",
-            state_id=state.state_id,
-            plan_estimate=None,
-            prediction=None,
-            reasons=["SQL policy and estimator are not integrated in the local demo."],
-            recommendations=["Connect team ports before enabling SQL execution."],
-        )
-
     async def status(self, run_id):
         raise PortError("NOT_FOUND", 404)
 
@@ -148,8 +133,6 @@ class DemoAdapter:
 
 def demo_ports(settings):
     from app.intelligence.service import IntelligenceService
-    from app.intelligence.sql_ast import SqlAllowlist
     adapter = DemoAdapter(settings)
-    # No lab database has been enrolled: SQL remains default-deny.
-    intelligence = IntelligenceService(SqlAllowlist(tables={}, default_schema="lab"))
+    intelligence = IntelligenceService()
     return Ports(adapter, adapter, intelligence, adapter)
