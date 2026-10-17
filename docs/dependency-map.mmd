@@ -1,0 +1,83 @@
+flowchart LR
+  subgraph APP[Application services]
+    FE[frontend :5000]
+    S[search :8082]
+    G[geo :8083]
+    R[rate :8084]
+    P[profile :8081]
+    REC[recommendation :8085]
+    RSV[reservation :8087]
+    U[user :8086]
+    REV[review :8088\nDiscovery defect]
+    A[attractions :8089\nDiscovery defect]
+  end
+
+  FE -->|RPC| S
+  FE -->|RPC| P
+  FE -->|RPC| REC
+  FE -->|RPC| RSV
+  FE -->|RPC| U
+  FE -.->|BROKEN: bare srv-review target| REV
+  FE -.->|BROKEN: bare srv-attractions target| A
+  S -->|geo.Nearby, then rate.GetRates| G
+  S --> R
+
+  G --> MG[(mongodb-geo)]
+  P --> MP[(mongodb-profile)]
+  P --> CP[(memcached-profile)]
+  R --> MR[(mongodb-rate)]
+  R --> CR[(memcached-rate)]
+  REV --> MV[(mongodb-review)]
+  REV --> CV[(memcached-review)]
+  A --> MA[(mongodb-attractions)]
+  REC --> MREC[(mongodb-recommendation)]
+  RSV --> MRSV[(mongodb-reservation)]
+  RSV --> CRES[(memcached-reserve)]
+  U --> MU[(mongodb-user)]
+
+  C[consul :8500]
+  J[jaeger :16686]
+  FE -->|discovery client| C
+  S -. registration .-> C
+  G -. registration .-> C
+  R -. registration .-> C
+  P -. registration .-> C
+  REC -. registration .-> C
+  RSV -. registration .-> C
+  U -. registration .-> C
+  REV -. registration .-> C
+  A -. registration .-> C
+  FE -. tracing configured .-> J
+  S -. tracing configured .-> J
+  G -. tracing configured .-> J
+  R -. tracing configured .-> J
+  P -. tracing configured .-> J
+  REC -. tracing configured .-> J
+  RSV -. tracing configured .-> J
+  U -. tracing configured .-> J
+  REV -. tracing configured .-> J
+  A -. tracing configured .-> J
+
+  subgraph ROUTES[Verified frontend endpoint paths]
+    H["/hotels: search.Nearby → geo.Nearby → rate.GetRates → reservation.CheckAvailability → profile.GetProfiles"]
+    RC["/recommendations: recommendation.GetRecommendations → profile.GetProfiles"]
+    USER["/user: user.CheckUser"]
+    RES["/reservation: user.CheckUser → reservation.MakeReservation"]
+    RV["/review: user.CheckUser → review.GetReviews (discovery broken)"]
+    REST["/restaurants: user.CheckUser → attractions.NearbyRest (discovery broken)"]
+    MUS["/museums: user.CheckUser → attractions.NearbyMus (discovery broken)"]
+    CIN["/cinema: user.CheckUser → attractions.NearbyCinema (discovery broken)"]
+    ROOT["/: embedded static frontend"]
+  end
+  H -. maps to .-> FE
+  RC -. maps to .-> FE
+  USER -. maps to .-> FE
+  RES -. maps to .-> FE
+  RV -. maps to .-> FE
+  REST -. maps to .-> FE
+  MUS -. maps to .-> FE
+  CIN -. maps to .-> FE
+  ROOT -. served by .-> FE
+
+  classDef broken fill:#ffe1e1,stroke:#bb2222,color:#7a1111;
+  class REV,A,RV,REST,MUS,CIN broken;

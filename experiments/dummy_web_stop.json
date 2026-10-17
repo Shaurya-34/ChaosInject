@@ -1,0 +1,9 @@
+{
+  "name": "dummy-web-stop",
+  "target": "chaos-dummy-web",
+  "fault": "container_stop",
+  "duration_s": 10,
+  "probe_url": "http://localhost:8081/",
+  "baseline_samples": 5,
+  "interval_s": 1
+}

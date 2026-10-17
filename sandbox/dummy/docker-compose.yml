@@ -1,0 +1,16 @@
+# Throwaway target for testing the chaos controller before the real app is up.
+# "web" is allowlisted in chaos/policy.json; "other" is not (used to test refusal).
+name: chaos-dummy
+
+services:
+  web:
+    image: nginx:1.27-alpine
+    container_name: chaos-dummy-web
+    ports:
+      - "8081:80"
+
+  other:
+    image: nginx:1.27-alpine
+    container_name: chaos-dummy-other
+    ports:
+      - "8082:80"
