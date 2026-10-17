@@ -1024,10 +1024,6 @@
             "title": "Source",
             "type": "string"
           },
-          "sql_execution_enabled": {
-            "title": "Sql Execution Enabled",
-            "type": "boolean"
-          },
           "status": {
             "enum": [
               "ready",
@@ -1045,7 +1041,6 @@
           "context",
           "namespace",
           "mutations_enabled",
-          "sql_execution_enabled",
           "limitations"
         ],
         "title": "Health",

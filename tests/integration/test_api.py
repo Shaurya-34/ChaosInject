@@ -96,3 +96,7 @@ def test_restart_learning_and_actions_disabled(client):
     s=client.get('/api/v1/learning/status').json()
     assert s['retained_raw_examples']==0 and s['updates']==0 and s['persistence']=='disabled'
     assert client.post('/api/v1/actions/propose',json={}).json()['code']=='ACTIONS_DISABLED'
+
+def test_health_in_fixture_and_demo_modes(client):
+    r=client.get('/api/v1/health')
+    assert r.status_code==200 and r.json()['status']=='ready' and 'sql_execution_enabled' not in r.json()

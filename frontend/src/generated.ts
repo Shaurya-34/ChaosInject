@@ -976,8 +976,6 @@ export interface components {
              * @enum {string}
              */
             source: "live" | "fixture" | "replay";
-            /** Sql Execution Enabled */
-            sql_execution_enabled: boolean;
             /**
              * Status
              * @enum {string}

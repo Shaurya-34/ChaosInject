@@ -421,6 +421,5 @@ class Health(Observed):
     context: str
     namespace: str
     mutations_enabled: bool
-    sql_execution_enabled: bool
     adaptive_rollback_enabled: Literal[False] = False
     limitations: list[str]
