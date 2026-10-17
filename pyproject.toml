@@ -3,9 +3,9 @@ requires = ["setuptools==80.9.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "bosch-resilience-ai"
+name = "chaosinject"
 version = "0.1.0"
-description = "Sachin's API, contracts and dashboard integration workstream"
+description = "Chaos engineering with guard rails for a sandboxed microservice app"
 requires-python = ">=3.11"
 dependencies = ["fastapi==0.143.0", "starlette==1.7.0", "pydantic==2.11.5", "uvicorn==0.34.2", "httpx==0.28.1"]
 
