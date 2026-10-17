@@ -22,6 +22,12 @@ export type ActiveRun={
   fault_active:boolean;fault:{target?:string;fault?:string}|null;stop_requested:boolean;log_tail:string[];
 };
 
+export type Proposal={
+  experiment:{name:string;target:string;fault:string;duration_s:number;[k:string]:unknown};
+  rationale:string;expected_impact:string;affected_endpoints:string[];times_run:number;score:number;rationale_source:string;
+};
+export type Proposals={proposals:Proposal[];rejected:{target:string;fault:string;reason:string}[];limitations:string[]};
+
 export class ChaosApiError extends Error{
   constructor(public status:number,public code:string,message:string){super(message);}
 }

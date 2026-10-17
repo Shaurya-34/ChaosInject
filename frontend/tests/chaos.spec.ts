@@ -13,6 +13,7 @@ const run={
   summary:{baseline:{count:3,failures:0,error_rate:0,p50_ms:41,p95_ms:42,max_ms:42},during:{count:3,failures:3,error_rate:1,p50_ms:null,p95_ms:null,max_ms:null},recovery:{count:1,failures:1,error_rate:1,p50_ms:null,p95_ms:null,max_ms:null}},
 };
 const index=[{run_id:run.run_id,file:run.run_id+'.json',experiment:'hotel_geo_stop',target:'hotel-sandbox-geo-1',fault:'container_stop',duration_s:20,stop_reason:run.stop_reason,recovered:false,recovery_s:null,during_error_rate:1,during_p95_ms:null,baseline_p95_ms:42}];
+const proposals={proposals:[{experiment:{name:'hotel-rate-stop',target:'hotel-sandbox-rate-1',fault:'container_stop',duration_s:20},rationale:'container_stop on rate has never been run; 1 working endpoint(s) depend on rate.',expected_impact:'Stops the container for rate. Requests to /hotels depend on it.',affected_endpoints:['/hotels'],times_run:0,score:0.68,rationale_source:'deterministic'}],rejected:[{target:'hotel-sandbox-frontend-1',fault:'container_stop',reason:"target 'hotel-sandbox-frontend-1' is not allowlisted"}],limitations:[]};
 const idle={running:false,experiment:null,pid:null,started_at:null,exit_code:null,run_id:null,fault_active:false,fault:null,stop_requested:false,log_tail:[]};
 
 async function mockChaos(page:Page,active:object,onRun?:()=>{status:number,body:object}){
@@ -22,6 +23,7 @@ async function mockChaos(page:Page,active:object,onRun?:()=>{status:number,body:
     if(path==='/experiments')return json([{id:'hotel_geo_stop',name:'hotel_geo_stop',target:'hotel-sandbox-geo-1',fault:'container_stop',duration_s:20}]);
     if(path==='/runs')return json(index);
     if(path==='/runs/'+run.run_id)return json(run);
+    if(path==='/proposals')return json(proposals);
     if(path==='/active')return json(active);
     if(path.endsWith('/run')&&onRun){const r=onRun();return json(r.body,r.status);}
     return json({code:'NOT_FOUND',message:'not mocked'},404);
@@ -60,4 +62,13 @@ test('a running experiment shows the live panel with a Stop button',async({page}
   await openChaosRuns(page);
   const live=page.getByText('Run in progress · hotel_geo_stop');
   await expect(live).toBeVisible();await expect(page.getByText('FAULT ACTIVE',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Stop run'})).toBeEnabled();
+});
+
+test('suggested experiments are shown as proposals only, with policy refusals listed',async({page})=>{
+  await mockChaos(page,idle);await openChaosRuns(page);
+  const panel=page.getByLabel('Suggested experiments');
+  await expect(panel).toBeVisible();await expect(panel).toContainText('hotel-rate-stop');await expect(panel).toContainText('PROPOSALS ONLY');
+  await expect(panel.getByRole('button',{name:'Copy JSON'})).toBeVisible();
+  await panel.getByText('1 candidates refused by policy').click();await expect(panel).toContainText('not allowlisted');
+  await expect(page.getByRole('button',{name:'Run',exact:true})).toHaveCount(1); // only the real experiment has Run; a proposal has none
 });

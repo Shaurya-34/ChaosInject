@@ -17,6 +17,8 @@ from pathlib import Path
 from fastapi import APIRouter
 
 from app.api.errors import PortError
+from app.intelligence import injection_agent
+from app.intelligence.reasoning import provider_from_env
 
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:  # chaos/ lives at the repo root, beside backend/
@@ -25,6 +27,7 @@ if str(ROOT) not in sys.path:  # chaos/ lives at the repo root, beside backend/
 from chaos import controller, hooks  # noqa: E402
 
 EXPERIMENTS_DIR = ROOT / "experiments"
+DEPENDENCY_MAP = ROOT / "docs" / "dependency-map.json"
 NAME = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 RUN_ID = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 LOG_TAIL_LINES = 40
@@ -163,6 +166,18 @@ def create_router(execution_enabled: bool) -> APIRouter:
         finally:
             controller.release_lock()
         return {"restored": target}
+
+    @router.get("/proposals")
+    async def proposals():
+        """Ranked experiment proposals from the injection agent. Read-only: nothing is written or run."""
+        dep_map = json.loads(DEPENDENCY_MAP.read_text(encoding="utf-8"))
+        names = {p.stem for p in EXPERIMENTS_DIR.glob("*.json")}
+        names |= {json.loads(p.read_text(encoding="utf-8")).get("name", "") for p in EXPERIMENTS_DIR.glob("*.json")}
+        result = injection_agent.propose(dep_map, hooks.list_results(), _policy(), existing_experiments=names)
+        provider, limitations = provider_from_env()
+        result["proposals"] = injection_agent.enrich_rationales(result["proposals"], provider)
+        result["limitations"] = limitations
+        return result
 
     @router.get("/runs")
     async def runs():

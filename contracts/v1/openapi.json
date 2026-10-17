@@ -3206,6 +3206,26 @@
         ]
       }
     },
+    "/api/v1/chaos/proposals": {
+      "get": {
+        "description": "Ranked experiment proposals from the injection agent. Read-only: nothing is written or run.",
+        "operationId": "proposals_api_v1_chaos_proposals_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Proposals",
+        "tags": [
+          "chaos"
+        ]
+      }
+    },
     "/api/v1/chaos/recover": {
       "post": {
         "description": "Restore a fault left behind by a controller that was killed mid-run.",
