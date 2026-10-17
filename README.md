@@ -254,10 +254,12 @@ python -m chaos.hooks show <run_id>
 Tests:
 
 ```powershell
-python -m unittest discover -s tests -t .
+python -m unittest tests.test_controller tests.test_hooks tests.test_hotel_setup
 ```
+
+The backend/frontend tests from AI-Chaos-Pilot run with `pytest` in their venv; see [docs/ai-chaos-pilot/README.md](docs/ai-chaos-pilot/README.md).
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). Code imported from AI-Chaos-Pilot is Apache-2.0; see [NOTICE](NOTICE) and [LICENSE-APACHE](LICENSE-APACHE).
 
