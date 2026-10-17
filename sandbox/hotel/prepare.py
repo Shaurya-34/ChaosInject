@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Derive a locked local sandbox from the unmodified upstream Compose file."""
+"""Derive a locked local sandbox from the unmodified upstream Compose file.
+
+--fix-rate builds `rate` from source with a patch (patches/rate/): a memcached error falls back
+to MongoDB instead of crashing the service (upstream calls log.Panic), and a circuit breaker
+skips the cache for a cooldown so requests don't each wait for the cache timeout. Without it,
+the sandbox reproduces the upstream behaviour that ChaosInject found.
+"""
+import argparse
 import json
 import os
 from pathlib import Path
@@ -11,13 +18,35 @@ APP_SERVICES = {
     "reservation", "user", "review", "attractions",
 }
 SOURCE_SERVICES = {"review", "attractions"}
+# Exact edits to upstream services/rate/server.go; each original must occur exactly once.
+RATE_EDITS = [
+    ("\tresMap, err := s.MemcClient.GetMulti(hotelIds)\n",
+     "\t// ChaosInject patch: skip the cache while its breaker is open (see cache_breaker.go).\n"
+     "\tvar resMap map[string]*memcache.Item\n"
+     "\tvar err error\n"
+     "\tif cacheAvailable() {\n"
+     "\t\tresMap, err = s.MemcClient.GetMulti(hotelIds)\n"
+     "\t}\n"),
+    ('\t\tlog.Panic().Msgf("Memmcached error while trying to get hotel [id: %v]= %s", hotelIds, err)\n'
+     "\t} else {\n",
+     "\t\t// ChaosInject patch: a cache outage falls back to MongoDB instead of crashing the service.\n"
+     '\t\tlog.Warn().Msgf("Memcached error while trying to get hotel [id: %v]= %s; falling back to MongoDB", hotelIds, err)\n'
+     "\t\tmarkCacheDown()\n"
+     "\t\tresMap = nil\n"
+     "\t}\n"
+     "\t{\n"),
+    ("\t\t\t\tgo s.MemcClient.Set(&memcache.Item{Key: id, Value: []byte(memcStr)})\n",
+     "\t\t\t\tif cacheAvailable() {\n"
+     "\t\t\t\t\tgo s.MemcClient.Set(&memcache.Item{Key: id, Value: []byte(memcStr)})\n"
+     "\t\t\t\t}\n"),
+]
 
 
 def run(*args, **kwargs):
     return subprocess.check_output(args, text=True, **kwargs)
 
 
-def configure(model, lock, source):
+def configure(model, lock, source, fix_rate=False):
     """Keep upstream services/volumes; change only sandbox deployment settings."""
     model = json.loads(json.dumps(model))
     services = model["services"]
@@ -84,6 +113,12 @@ def configure(model, lock, source):
                 dep: {"condition": "service_healthy" if dep == "consul" or dep.startswith("mongodb-") else "service_started"}
                 for dep in deps
             }
+    if fix_rate:
+        rate = services["rate"]
+        rate.pop("platform", None)
+        rate["image"] = "hotel-sandbox/rate:" + lock["upstream_commit"][:12] + "-cache-fallback"
+        rate["build"] = {"context": str(source), "dockerfile": "Dockerfile.rate-fix"}
+        rate["pull_policy"] = "build"
     services["consul"]["command"] = ["agent", "-dev", "-client=0.0.0.0"]
     services["consul"]["healthcheck"] = {
         "test": ["CMD-SHELL", "wget -qO- http://127.0.0.1:8500/v1/status/leader | grep -q ':8300'"],
@@ -100,7 +135,29 @@ def configure(model, lock, source):
     return model
 
 
+def write_rate_fix(source, sandbox_dockerfile):
+    """Patched copies of rate's sources (untracked) plus a Dockerfile that builds with them."""
+    server = (source / "services/rate/server.go").read_text()
+    for original, replacement in RATE_EDITS:
+        if server.count(original) != 1:
+            raise SystemExit("Unexpected upstream services/rate/server.go; review the rate patch")
+        server = server.replace(original, replacement)
+    out = source / "sandbox-patches/rate"
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "server.go").write_text(server, newline="\n")
+    (out / "cache_breaker.go").write_text((HERE / "patches/rate/cache_breaker.go").read_text(), newline="\n")
+    copy = "COPY services/ services/\n"
+    if sandbox_dockerfile.count(copy) != 1:
+        raise SystemExit("Unexpected upstream Dockerfile; review the rate patch")
+    (source / "Dockerfile.rate-fix").write_text(sandbox_dockerfile.replace(
+        copy, copy + "COPY sandbox-patches/rate/ services/rate/\n"))
+
+
 def main():
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--fix-rate", action="store_true",
+                        help="build rate with the cache-fallback patch instead of the upstream image")
+    args = parser.parse_args()
     lock = json.loads((HERE / "images.lock.json").read_text())
     runtime = HERE / ".runtime"
     repo = runtime / "DeathStarBench"
@@ -121,15 +178,17 @@ def main():
     original = "FROM golang:1.21 as builder"
     if dockerfile.count(original) != 1:
         raise SystemExit("Unexpected upstream Dockerfile; review required")
-    (source / "Dockerfile.sandbox").write_text(dockerfile.replace(
-        original, "FROM " + lock["images"]["golang"]["image"] + " as builder"))
+    sandbox_dockerfile = dockerfile.replace(original, "FROM " + lock["images"]["golang"]["image"] + " as builder")
+    (source / "Dockerfile.sandbox").write_text(sandbox_dockerfile)
+    if args.fix_rate:
+        write_rate_fix(source, sandbox_dockerfile)
     # Do not let host environment values change this benchmark's configuration.
     env = os.environ.copy()
     for key in ("TLS", "GC", "LOG_LEVEL", "JAEGER_SAMPLE_RATIO", "MEMC_TIMEOUT"):
         env.pop(key, None)
     model = json.loads(run("docker", "compose", "-f", str(source / "docker-compose.yml"),
                            "config", "--format", "json", env=env))
-    model = configure(model, lock, source)
+    model = configure(model, lock, source, fix_rate=args.fix_rate)
     output = runtime / "compose.yaml"
     output.write_text(json.dumps(model, indent=2) + "\n")
     subprocess.run(["docker", "compose", "-f", str(output), "config", "--quiet"], check=True)
