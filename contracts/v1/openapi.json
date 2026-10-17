@@ -3206,6 +3206,68 @@
         ]
       }
     },
+    "/api/v1/chaos/findings": {
+      "get": {
+        "description": "Weaknesses ranked by severity from the saved runs. Read-only.",
+        "operationId": "findings_api_v1_chaos_findings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Findings",
+        "tags": [
+          "chaos"
+        ]
+      }
+    },
+    "/api/v1/chaos/findings/report": {
+      "get": {
+        "operationId": "findings_report_api_v1_chaos_findings_report_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "md",
+              "pattern": "^(md|html)$",
+              "title": "Format",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Findings Report",
+        "tags": [
+          "chaos"
+        ]
+      }
+    },
     "/api/v1/chaos/proposals": {
       "get": {
         "description": "Ranked experiment proposals from the injection agent. Read-only: nothing is written or run.",

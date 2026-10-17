@@ -28,6 +28,13 @@ export type Proposal={
 };
 export type Proposals={proposals:Proposal[];rejected:{target:string;fault:string;reason:string}[];limitations:string[]};
 
+export type Finding={
+  id:string;severity:number;severity_label:string;title:string;target:string;fault:string;affected_endpoints:string[];
+  explanation:string;suggested_fix:string;run_ids:string[];explanation_source:string;
+  evidence:{run_id:string;stop_reason:string|null;recovered:boolean|null;recovery_s:number|null;baseline_p95_ms:number|null;during_p95_ms:number|null;during_error_rate:number|null}[];
+};
+export type Findings={findings:Finding[];runs_analyzed:number;runs_without_findings:number;runs_not_evaluated:number;limitations:string[]};
+
 export class ChaosApiError extends Error{
   constructor(public status:number,public code:string,message:string){super(message);}
 }
@@ -61,4 +68,12 @@ export function phaseFromLog(lines:string[]):string{
     if(line.includes('[baseline'))return 'Baseline';
   }
   return 'Starting';
+}
+
+/** Fetch a report with the operator token and hand it to the browser as a file download. */
+export async function chaosDownload(path:string,filename:string):Promise<void>{
+  const response=await fetch('/api/v1/chaos'+path,{headers:{Authorization:'Bearer '+currentToken()},cache:'no-store'});
+  if(!response.ok)throw new ChaosApiError(response.status,'UNKNOWN','Report unavailable');
+  const url=URL.createObjectURL(await response.blob());
+  const a=document.createElement('a');a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url);
 }

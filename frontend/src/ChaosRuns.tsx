@@ -1,7 +1,7 @@
 import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {AlertTriangle,OctagonX,Play,RotateCcw} from 'lucide-react';
 import {CartesianGrid,ComposedChart,Legend,Line,ReferenceArea,ResponsiveContainer,Scatter,Tooltip,XAxis,YAxis} from 'recharts';
-import {ChaosApiError,chaos,phaseFromLog,refusalMessage,type ActiveRun,type ChaosRun,type ExperimentRow,type IndexEntry,type Proposals} from './chaosApi';
+import {ChaosApiError,chaos,chaosDownload,phaseFromLog,refusalMessage,type ActiveRun,type ChaosRun,type ExperimentRow,type IndexEntry,type Proposals,type Findings} from './chaosApi';
 
 const pct=(x:number|null|undefined)=>x==null?'n/a':`${Math.round(x*100)}%`;
 const ms=(x:number|null|undefined)=>x==null?'n/a':`${Math.round(x)} ms`;
@@ -11,6 +11,7 @@ export function ChaosRuns({source}:{source?:string}){
   const [experiments,setExperiments]=useState<ExperimentRow[]>([]);
   const [runs,setRuns]=useState<IndexEntry[]>([]);
   const [suggested,setSuggested]=useState<Proposals>();
+  const [findings,setFindings]=useState<Findings>();
   const [active,setActive]=useState<ActiveRun>();
   const [detail,setDetail]=useState<ChaosRun>();
   const [selected,setSelected]=useState<string>();
@@ -28,6 +29,7 @@ export function ChaosRuns({source}:{source?:string}){
   useEffect(()=>{
     chaos<ExperimentRow[]>('/experiments').then(setExperiments).catch(e=>setMessage(refusalMessage(e)));
     chaos<Proposals>('/proposals').then(setSuggested).catch(()=>{});
+    chaos<Findings>('/findings').then(setFindings).catch(()=>{});
     loadRuns().catch(e=>setMessage(refusalMessage(e)));
   },[loadRuns]);
 
@@ -44,6 +46,7 @@ export function ChaosRuns({source}:{source?:string}){
         if(a.running)delay=1000;
         if(wasRunning.current&&!a.running){
           loadRuns().catch(()=>{});
+          chaos<Findings>('/findings').then(setFindings).catch(()=>{});
           if(a.run_id)openRun(a.run_id);
         }
         wasRunning.current=a.running;
@@ -98,6 +101,7 @@ export function ChaosRuns({source}:{source?:string}){
       </section>
     </div>
 
+    {findings&&<FindingsPanel data={findings} onOpen={openRun} onError={e=>setMessage(refusalMessage(e))}/>}
     {suggested&&<SuggestedExperiments data={suggested} onCopied={()=>setMessage('Experiment JSON copied. Review it, then save it under experiments/ to make it runnable.')}/>}
     {detail&&<RunDetail run={detail}/>}
   </div>;
@@ -155,5 +159,21 @@ function SuggestedExperiments({data,onCopied}:{data:Proposals;onCopied:()=>void}
       <button onClick={()=>copy(p)} title="Copy the experiment JSON to the clipboard">Copy JSON</button>
     </div>)}
     {data.rejected.length>0&&<details><summary>{data.rejected.length} candidates refused by policy</summary><ul className="muted">{data.rejected.slice(0,40).map(r=><li key={r.target+r.fault}>{r.target} · {r.fault}: {r.reason}</li>)}</ul></details>}
+  </section>;
+}
+
+function FindingsPanel({data,onOpen,onError}:{data:Findings;onOpen:(id:string)=>void;onError:(e:unknown)=>void}){
+  const save=(format:'md'|'html')=>chaosDownload(`/findings/report?format=${format}`,`chaos-findings.${format}`).catch(onError);
+  return <section className="panel chaos-findings" aria-label="Findings">
+    <div className="panel-title"><h2>Findings</h2><span><button onClick={()=>save('md')}>Download Markdown</button> <button onClick={()=>save('html')}>Download HTML</button></span></div>
+    <p className="muted">Ranked by severity from {data.runs_analyzed} saved run(s). Every finding cites its runs; numbers come from the run records. {data.runs_without_findings} run(s) showed no weakness, {data.runs_not_evaluated} not evaluated.</p>
+    {data.limitations.map(l=><p key={l} className="muted">{l}</p>)}
+    {data.findings.length===0&&<p className="empty">No weaknesses found in the saved runs.</p>}
+    {data.findings.map(f=><article className={'finding-card sev'+f.severity} key={f.id}>
+      <div><span className={'small-tag sev'+f.severity}>{f.severity_label.toUpperCase()}</span> <strong>{f.title}</strong></div>
+      <p>{f.explanation}</p>
+      <p className="muted">Affects: {f.affected_endpoints.join(', ')||'no working endpoint'} · Runs: {f.run_ids.map(id=><button key={id} className="link" onClick={()=>onOpen(id)}>{id}</button>)}</p>
+      <p><strong>Suggested fix.</strong> {f.suggested_fix}</p>
+    </article>)}
   </section>;
 }
