@@ -1,6 +1,7 @@
 import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {AlertTriangle,OctagonX,Play,RotateCcw} from 'lucide-react';
 import {CartesianGrid,ComposedChart,Legend,Line,ReferenceArea,ResponsiveContainer,Scatter,Tooltip,XAxis,YAxis} from 'recharts';
+import {PrometheusCharts} from './PrometheusCharts';
 import {ChaosApiError,chaos,chaosDownload,phaseFromLog,refusalMessage,type ActiveRun,type ChaosRun,type ExperimentRow,type IndexEntry,type Proposals,type Findings} from './chaosApi';
 
 const pct=(x:number|null|undefined)=>x==null?'n/a':`${Math.round(x*100)}%`;
@@ -143,6 +144,7 @@ function RunDetail({run}:{run:ChaosRun}){
     <dl className="chaos-summary">
       {(['baseline','during','recovery'] as const).map(k=><React.Fragment key={k}><dt>{k}</dt><dd>{run.summary[k].count} probes · {run.summary[k].failures} failed · p95 {ms(run.summary[k].p95_ms)}</dd></React.Fragment>)}
     </dl>
+    <PrometheusCharts runId={run.run_id}/>
   </section>;
 }
 

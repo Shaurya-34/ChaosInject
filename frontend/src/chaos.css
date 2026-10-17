@@ -28,3 +28,10 @@
 .small-tag.sev1{background:#fff0f0;color:#b14343;border-color:#edc6c7}
 button.link{background:none;border:0;padding:0 6px 0 0;color:#0b8178;text-decoration:underline;font-size:11px;font-family:ui-monospace,monospace;font-weight:500}
 .chaos-findings .panel-title button{font-size:12px;padding:6px 10px}
+.prom{margin-top:22px;border-top:1px solid #e9eeee;padding-top:14px}
+.prom h3{margin:0 0 4px}
+.prom-note{color:#7d9199;font-size:12px;background:#f7f8f9;border-radius:6px;padding:10px 12px;margin:10px 0}
+.prom-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:10px}
+.prom-chart{margin:0;border:1px solid #edf1f2;border-radius:8px;padding:10px 12px}
+.prom-chart figcaption{font-size:12px;color:#587179;font-weight:600;margin-bottom:4px}
+@media(max-width:900px){.prom-grid{grid-template-columns:1fr}}
