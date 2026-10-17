@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bosch-resilience-ai"
+version = "0.1.0"
+description = "Sachin's API, contracts and dashboard integration workstream"
+requires-python = ">=3.11"
+dependencies = ["fastapi==0.143.0", "starlette==1.7.0", "pydantic==2.11.5", "uvicorn==0.34.2", "httpx==0.28.1", "pglast==8.5", "river==0.26.1"]
+
+[project.optional-dependencies]
+test = ["pytest==9.1.1", "pytest-asyncio==1.4.0", "httpx==0.28.1"]
+
+[tool.setuptools.packages.find]
+where = ["backend"]
+
+[tool.pytest.ini_options]
+pythonpath = ["backend"]
+testpaths = ["tests"]
+markers = [
+    "integration_http: real loopback HTTP against the separate demo target (not mocked)",
+]
+asyncio_mode = "auto"

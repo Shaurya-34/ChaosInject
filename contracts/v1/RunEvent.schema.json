@@ -1,0 +1,91 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "details": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "title": "Details",
+      "type": "object"
+    },
+    "event_type": {
+      "title": "Event Type",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sequence": {
+      "minimum": 0,
+      "title": "Sequence",
+      "type": "integer"
+    },
+    "source": {
+      "enum": [
+        "live",
+        "fixture",
+        "replay"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "DRAFT",
+        "VALIDATED",
+        "AWAITING_APPROVAL",
+        "BASELINING",
+        "PREFLIGHT",
+        "INJECTING",
+        "OBSERVING",
+        "CLEANING_UP",
+        "VERIFYING_RECOVERY",
+        "ANALYZING",
+        "COMPLETED",
+        "REJECTED",
+        "ABORTED",
+        "CANCELLED",
+        "FAILED",
+        "CLEANUP_FAILED"
+      ],
+      "title": "State",
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "title": "Timestamp",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source",
+    "run_id",
+    "sequence",
+    "timestamp",
+    "event_type",
+    "state",
+    "details"
+  ],
+  "title": "RunEvent",
+  "type": "object"
+}

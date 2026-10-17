@@ -1,0 +1,131 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "drift_status": {
+      "enum": [
+        "cold_start",
+        "stable",
+        "drift",
+        "unknown"
+      ],
+      "title": "Drift Status",
+      "type": "string"
+    },
+    "dropped_events": {
+      "minimum": 0,
+      "title": "Dropped Events",
+      "type": "integer"
+    },
+    "intent_ttl_seconds": {
+      "maximum": 60,
+      "minimum": 1,
+      "title": "Intent Ttl Seconds",
+      "type": "integer"
+    },
+    "learner_version": {
+      "title": "Learner Version",
+      "type": "string"
+    },
+    "metric_buffer_seconds": {
+      "maximum": 120,
+      "minimum": 1,
+      "title": "Metric Buffer Seconds",
+      "type": "integer"
+    },
+    "model_limit_bytes": {
+      "minimum": 0,
+      "title": "Model Limit Bytes",
+      "type": "integer"
+    },
+    "pending_count": {
+      "maximum": 128,
+      "minimum": 0,
+      "title": "Pending Count",
+      "type": "integer"
+    },
+    "pending_limit": {
+      "maximum": 128,
+      "minimum": 1,
+      "title": "Pending Limit",
+      "type": "integer"
+    },
+    "persistence": {
+      "const": "disabled",
+      "default": "disabled",
+      "title": "Persistence",
+      "type": "string"
+    },
+    "prediction_error": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Prediction Error"
+    },
+    "processed": {
+      "minimum": 0,
+      "title": "Processed",
+      "type": "integer"
+    },
+    "queue_limit": {
+      "maximum": 256,
+      "minimum": 1,
+      "title": "Queue Limit",
+      "type": "integer"
+    },
+    "retained_raw_examples": {
+      "const": 0,
+      "default": 0,
+      "title": "Retained Raw Examples",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "enum": [
+        "live",
+        "fixture",
+        "replay"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "started_at": {
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+    },
+    "updates": {
+      "minimum": 0,
+      "title": "Updates",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "source",
+    "learner_version",
+    "started_at",
+    "processed",
+    "updates",
+    "pending_count",
+    "dropped_events",
+    "drift_status",
+    "prediction_error",
+    "queue_limit",
+    "pending_limit",
+    "metric_buffer_seconds",
+    "intent_ttl_seconds",
+    "model_limit_bytes"
+  ],
+  "title": "LearningStatus",
+  "type": "object"
+}

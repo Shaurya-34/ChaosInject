@@ -1,0 +1,31 @@
+ChaosInject
+Copyright 2026 ChaosInject contributors
+
+This repository combines two projects:
+
+1. Shaurya-34/Hackathon (https://github.com/Shaurya-34/Hackathon), MIT, see LICENSE:
+   chaos/, sandbox/, experiments/, docs/ (except docs/ai-chaos-pilot/), tests/test_*.py at the top level.
+
+2. ssaaach/AI-Chaos-Pilot (https://github.com/ssaaach/AI-Chaos-Pilot), Apache-2.0, see LICENSE-APACHE,
+   imported at commit 9d0a0734df14fbbf9c7182366a0d0bce59e09839.
+   Authors: Sachin Bhat (ssaaach), Gautham Poornachandran (Gauthamop), Navya (Navya1801),
+   Thoshitha Kolisetty, and the Bosch Resilience AI team.
+   Paths: backend/, contracts/, frontend/, fixtures/, scripts/, .github/, docs/ai-chaos-pilot/,
+   tests/contracts/, tests/integration/, tests/intelligence/, tests/telemetry/, tests/conftest.py,
+   tests/test_demo_runtime_*.py, pyproject.toml, requirements.txt, requirements.lock.
+
+   Its original NOTICE follows:
+
+   Bosch Resilience AI integration workstream
+   Copyright 2026 Bosch Resilience AI team contributors
+
+   Team code is licensed under Apache-2.0.
+   This project is a team prototype; it is not an official Bosch product.
+   Google Online Boutique source is vendored under application/online-boutique. Preserve its Apache-2.0 license and upstream notices.
+   Preserve upstream copyright, licenses and notices when integrating those sources.
+   Dependency licenses remain with their respective packages.
+
+   (Online Boutique was not imported into this repository.)
+
+DeathStarBench (Apache-2.0) is fetched at setup time by sandbox/hotel/prepare.py and is not vendored.
+Dependency licenses remain with their respective packages.

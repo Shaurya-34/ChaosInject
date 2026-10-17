@@ -1,0 +1,60 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "cleanup_status": {
+      "enum": [
+        "verified",
+        "failed",
+        "not_applicable",
+        "pending"
+      ],
+      "title": "Cleanup Status",
+      "type": "string"
+    },
+    "recovery_status": {
+      "enum": [
+        "verified",
+        "failed",
+        "unknown",
+        "pending"
+      ],
+      "title": "Recovery Status",
+      "type": "string"
+    },
+    "sandbox_id": {
+      "title": "Sandbox Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "enum": [
+        "live",
+        "fixture",
+        "replay"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "unresolved_run_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unresolved Run Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "source",
+    "sandbox_id",
+    "cleanup_status",
+    "recovery_status",
+    "unresolved_run_ids"
+  ],
+  "title": "CleanupSummary",
+  "type": "object"
+}

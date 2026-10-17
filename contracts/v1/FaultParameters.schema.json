@@ -1,0 +1,60 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "duration_seconds": {
+      "maximum": 60,
+      "minimum": 1,
+      "title": "Duration Seconds",
+      "type": "integer"
+    },
+    "latency_ms": {
+      "anyOf": [
+        {
+          "maximum": 1000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latency Ms"
+    },
+    "pod_uid": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Pod Uid"
+    },
+    "proxy_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Proxy Name"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "duration_seconds"
+  ],
+  "title": "FaultParameters",
+  "type": "object"
+}

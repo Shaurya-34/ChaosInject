@@ -1,0 +1,58 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "actor_ref": {
+      "title": "Actor Ref",
+      "type": "string"
+    },
+    "approval_id": {
+      "title": "Approval Id",
+      "type": "string"
+    },
+    "approved_at": {
+      "format": "date-time",
+      "title": "Approved At",
+      "type": "string"
+    },
+    "expires_at": {
+      "format": "date-time",
+      "title": "Expires At",
+      "type": "string"
+    },
+    "proposal_hash": {
+      "title": "Proposal Hash",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scope": {
+      "enum": [
+        "experiment",
+        "bounded_read",
+        "action"
+      ],
+      "title": "Scope",
+      "type": "string"
+    },
+    "single_use": {
+      "const": true,
+      "default": true,
+      "title": "Single Use",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "approval_id",
+    "proposal_hash",
+    "actor_ref",
+    "approved_at",
+    "expires_at",
+    "scope"
+  ],
+  "title": "ApprovalRecord",
+  "type": "object"
+}

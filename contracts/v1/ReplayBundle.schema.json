@@ -1,0 +1,1428 @@
+{
+  "$defs": {
+    "AnalysisResult": {
+      "additionalProperties": false,
+      "properties": {
+        "alternatives": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Alternatives",
+          "type": "array"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/EvidenceRef"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "hypotheses": {
+          "items": {
+            "$ref": "#/$defs/Finding"
+          },
+          "title": "Hypotheses",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "measured_facts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Measured Facts",
+          "type": "array"
+        },
+        "mode": {
+          "enum": [
+            "live_model",
+            "deterministic_fallback",
+            "fixture"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "recommendations": {
+          "items": {
+            "$ref": "#/$defs/Finding"
+          },
+          "title": "Recommendations",
+          "type": "array"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "live",
+            "fixture",
+            "replay"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "run_id",
+        "mode",
+        "measured_facts",
+        "hypotheses",
+        "alternatives",
+        "recommendations",
+        "evidence_refs",
+        "limitations"
+      ],
+      "title": "AnalysisResult",
+      "type": "object"
+    },
+    "EvidenceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_hash": {
+          "title": "Evidence Hash",
+          "type": "string"
+        },
+        "pointer": {
+          "title": "Pointer",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "evidence_hash",
+        "pointer"
+      ],
+      "title": "EvidenceRef",
+      "type": "object"
+    },
+    "Finding": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/EvidenceRef"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "explanation": {
+          "title": "Explanation",
+          "type": "string"
+        },
+        "priority": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Priority",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "predicted",
+            "supported_in_this_run",
+            "not_supported",
+            "insufficient_evidence"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "explanation",
+        "status",
+        "priority",
+        "evidence_refs"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "LearningStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "drift_status": {
+          "enum": [
+            "cold_start",
+            "stable",
+            "drift",
+            "unknown"
+          ],
+          "title": "Drift Status",
+          "type": "string"
+        },
+        "dropped_events": {
+          "minimum": 0,
+          "title": "Dropped Events",
+          "type": "integer"
+        },
+        "intent_ttl_seconds": {
+          "maximum": 60,
+          "minimum": 1,
+          "title": "Intent Ttl Seconds",
+          "type": "integer"
+        },
+        "learner_version": {
+          "title": "Learner Version",
+          "type": "string"
+        },
+        "metric_buffer_seconds": {
+          "maximum": 120,
+          "minimum": 1,
+          "title": "Metric Buffer Seconds",
+          "type": "integer"
+        },
+        "model_limit_bytes": {
+          "minimum": 0,
+          "title": "Model Limit Bytes",
+          "type": "integer"
+        },
+        "pending_count": {
+          "maximum": 128,
+          "minimum": 0,
+          "title": "Pending Count",
+          "type": "integer"
+        },
+        "pending_limit": {
+          "maximum": 128,
+          "minimum": 1,
+          "title": "Pending Limit",
+          "type": "integer"
+        },
+        "persistence": {
+          "const": "disabled",
+          "default": "disabled",
+          "title": "Persistence",
+          "type": "string"
+        },
+        "prediction_error": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Prediction Error"
+        },
+        "processed": {
+          "minimum": 0,
+          "title": "Processed",
+          "type": "integer"
+        },
+        "queue_limit": {
+          "maximum": 256,
+          "minimum": 1,
+          "title": "Queue Limit",
+          "type": "integer"
+        },
+        "retained_raw_examples": {
+          "const": 0,
+          "default": 0,
+          "title": "Retained Raw Examples",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "live",
+            "fixture",
+            "replay"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "updates": {
+          "minimum": 0,
+          "title": "Updates",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source",
+        "learner_version",
+        "started_at",
+        "processed",
+        "updates",
+        "pending_count",
+        "dropped_events",
+        "drift_status",
+        "prediction_error",
+        "queue_limit",
+        "pending_limit",
+        "metric_buffer_seconds",
+        "intent_ttl_seconds",
+        "model_limit_bytes"
+      ],
+      "title": "LearningStatus",
+      "type": "object"
+    },
+    "LoadProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "concurrency": {
+          "minimum": 1,
+          "title": "Concurrency",
+          "type": "integer"
+        },
+        "generator_version": {
+          "title": "Generator Version",
+          "type": "string"
+        },
+        "load_profile_id": {
+          "title": "Load Profile Id",
+          "type": "string"
+        },
+        "measurement_seconds": {
+          "minimum": 0,
+          "title": "Measurement Seconds",
+          "type": "number"
+        },
+        "operation_mix": {
+          "additionalProperties": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "title": "Operation Mix",
+          "type": "object"
+        },
+        "requested_rate": {
+          "minimum": 0,
+          "title": "Requested Rate",
+          "type": "number"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "minimum": 0,
+          "title": "Timeout Seconds",
+          "type": "number"
+        },
+        "warmup_seconds": {
+          "minimum": 0,
+          "title": "Warmup Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "load_profile_id",
+        "operation_mix",
+        "concurrency",
+        "requested_rate",
+        "timeout_seconds",
+        "warmup_seconds",
+        "measurement_seconds",
+        "generator_version"
+      ],
+      "title": "LoadProfile",
+      "type": "object"
+    },
+    "OperationAggregate": {
+      "additionalProperties": false,
+      "properties": {
+        "attempted": {
+          "minimum": 0,
+          "title": "Attempted",
+          "type": "integer"
+        },
+        "error_categories": {
+          "additionalProperties": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "title": "Error Categories",
+          "type": "object"
+        },
+        "failed": {
+          "minimum": 0,
+          "title": "Failed",
+          "type": "integer"
+        },
+        "missing": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing",
+          "type": "array"
+        },
+        "p50_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "P50 Ms"
+        },
+        "p95_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "P95 Ms"
+        },
+        "percentile_method": {
+          "title": "Percentile Method",
+          "type": "string"
+        },
+        "sample_count": {
+          "minimum": 0,
+          "title": "Sample Count",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "succeeded": {
+          "minimum": 0,
+          "title": "Succeeded",
+          "type": "integer"
+        },
+        "success_rate": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Success Rate"
+        }
+      },
+      "required": [
+        "attempted",
+        "succeeded",
+        "failed",
+        "error_categories",
+        "success_rate",
+        "p50_ms",
+        "p95_ms",
+        "percentile_method",
+        "sample_count",
+        "missing"
+      ],
+      "title": "OperationAggregate",
+      "type": "object"
+    },
+    "PhaseSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "achieved_rate": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Achieved Rate"
+        },
+        "desired_max": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Desired Max"
+        },
+        "ended_at": {
+          "format": "date-time",
+          "title": "Ended At",
+          "type": "string"
+        },
+        "offered_rate": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Offered Rate"
+        },
+        "operations": {
+          "additionalProperties": {
+            "$ref": "#/$defs/OperationAggregate"
+          },
+          "title": "Operations",
+          "type": "object"
+        },
+        "percentile_method": {
+          "title": "Percentile Method",
+          "type": "string"
+        },
+        "phase": {
+          "enum": [
+            "baseline",
+            "fault",
+            "recovery"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "quality_notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Quality Notes",
+          "type": "array"
+        },
+        "ready_min": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ready Min"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "phase",
+        "started_at",
+        "ended_at",
+        "operations",
+        "offered_rate",
+        "achieved_rate",
+        "ready_min",
+        "desired_max",
+        "quality_notes",
+        "percentile_method"
+      ],
+      "title": "PhaseSummary",
+      "type": "object"
+    },
+    "Readiness": {
+      "additionalProperties": false,
+      "properties": {
+        "desired": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Desired"
+        },
+        "missing_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Missing Reason"
+        },
+        "ready": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ready"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ready",
+        "desired"
+      ],
+      "title": "Readiness",
+      "type": "object"
+    },
+    "RunEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "details": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Details",
+          "type": "object"
+        },
+        "event_type": {
+          "title": "Event Type",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "sequence": {
+          "minimum": 0,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "source": {
+          "enum": [
+            "live",
+            "fixture",
+            "replay"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "DRAFT",
+            "VALIDATED",
+            "AWAITING_APPROVAL",
+            "BASELINING",
+            "PREFLIGHT",
+            "INJECTING",
+            "OBSERVING",
+            "CLEANING_UP",
+            "VERIFYING_RECOVERY",
+            "ANALYZING",
+            "COMPLETED",
+            "REJECTED",
+            "ABORTED",
+            "CANCELLED",
+            "FAILED",
+            "CLEANUP_FAILED"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "run_id",
+        "sequence",
+        "timestamp",
+        "event_type",
+        "state",
+        "details"
+      ],
+      "title": "RunEvent",
+      "type": "object"
+    },
+    "RunSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "application_revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Application Revision"
+        },
+        "catalog_id": {
+          "title": "Catalog Id",
+          "type": "string"
+        },
+        "cleanup_status": {
+          "enum": [
+            "verified",
+            "failed",
+            "not_applicable",
+            "pending"
+          ],
+          "title": "Cleanup Status",
+          "type": "string"
+        },
+        "data_quality": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Data Quality",
+          "type": "array"
+        },
+        "evidence_hash": {
+          "title": "Evidence Hash",
+          "type": "string"
+        },
+        "load_profile": {
+          "$ref": "#/$defs/LoadProfile"
+        },
+        "phase_summaries": {
+          "items": {
+            "$ref": "#/$defs/PhaseSummary"
+          },
+          "title": "Phase Summaries",
+          "type": "array"
+        },
+        "recovery_seconds": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Recovery Seconds"
+        },
+        "recovery_status": {
+          "enum": [
+            "verified",
+            "failed",
+            "unknown",
+            "pending"
+          ],
+          "title": "Recovery Status",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "sandbox_id": {
+          "title": "Sandbox Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "score": {
+          "$ref": "#/$defs/ScoreComponents"
+        },
+        "source": {
+          "enum": [
+            "live",
+            "fixture",
+            "replay"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "stop_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Stop Reason"
+        },
+        "timeline_markers": {
+          "items": {
+            "$ref": "#/$defs/TimelineMarker"
+          },
+          "title": "Timeline Markers",
+          "type": "array"
+        },
+        "topology_hash": {
+          "title": "Topology Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "run_id",
+        "catalog_id",
+        "sandbox_id",
+        "topology_hash",
+        "application_revision",
+        "load_profile",
+        "phase_summaries",
+        "timeline_markers",
+        "stop_reason",
+        "cleanup_status",
+        "recovery_status",
+        "recovery_seconds",
+        "data_quality",
+        "score",
+        "evidence_hash"
+      ],
+      "title": "RunSummary",
+      "type": "object"
+    },
+    "ScoreComponents": {
+      "additionalProperties": false,
+      "properties": {
+        "availability": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Availability"
+        },
+        "configuration": {
+          "title": "Configuration",
+          "type": "string"
+        },
+        "latency": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Latency"
+        },
+        "missing": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing",
+          "type": "array"
+        },
+        "recovery": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Recovery"
+        },
+        "safety": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Safety"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "total": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Total"
+        }
+      },
+      "required": [
+        "availability",
+        "latency",
+        "recovery",
+        "safety",
+        "total",
+        "configuration",
+        "missing"
+      ],
+      "title": "ScoreComponents",
+      "type": "object"
+    },
+    "SystemStateSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "active_fault_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Active Fault Id"
+        },
+        "captured_at": {
+          "format": "date-time",
+          "title": "Captured At",
+          "type": "string"
+        },
+        "cpu_utilization": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cpu Utilization"
+        },
+        "db_connections_limit": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Db Connections Limit"
+        },
+        "db_connections_used": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Db Connections Used"
+        },
+        "error_rate": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error Rate"
+        },
+        "memory_utilization": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Memory Utilization"
+        },
+        "missing_features": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Features",
+          "type": "array"
+        },
+        "p95_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "P95 Ms"
+        },
+        "ready_by_workload": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Readiness"
+          },
+          "title": "Ready By Workload",
+          "type": "object"
+        },
+        "request_rate": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Request Rate"
+        },
+        "sandbox_id": {
+          "title": "Sandbox Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "live",
+            "fixture",
+            "replay"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "state_id": {
+          "title": "State Id",
+          "type": "string"
+        },
+        "valid_until": {
+          "format": "date-time",
+          "title": "Valid Until",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "state_id",
+        "captured_at",
+        "valid_until",
+        "sandbox_id",
+        "ready_by_workload",
+        "request_rate",
+        "error_rate",
+        "p95_ms",
+        "db_connections_used",
+        "db_connections_limit",
+        "missing_features",
+        "active_fault_id"
+      ],
+      "title": "SystemStateSnapshot",
+      "type": "object"
+    },
+    "TimelineMarker": {
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "DRAFT",
+            "VALIDATED",
+            "AWAITING_APPROVAL",
+            "BASELINING",
+            "PREFLIGHT",
+            "INJECTING",
+            "OBSERVING",
+            "CLEANING_UP",
+            "VERIFYING_RECOVERY",
+            "ANALYZING",
+            "COMPLETED",
+            "REJECTED",
+            "ABORTED",
+            "CANCELLED",
+            "FAILED",
+            "CLEANUP_FAILED"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        }
+      },
+      "required": [
+        "timestamp",
+        "state",
+        "reason"
+      ],
+      "title": "TimelineMarker",
+      "type": "object"
+    },
+    "TopologyEdge": {
+      "additionalProperties": false,
+      "properties": {
+        "caller": {
+          "title": "Caller",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "dependency": {
+          "title": "Dependency",
+          "type": "string"
+        },
+        "protocol": {
+          "title": "Protocol",
+          "type": "string"
+        },
+        "provenance": {
+          "title": "Provenance",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "caller",
+        "dependency",
+        "protocol",
+        "provenance",
+        "confidence"
+      ],
+      "title": "TopologyEdge",
+      "type": "object"
+    },
+    "TopologyNode": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "desired_replicas": {
+          "minimum": 0,
+          "title": "Desired Replicas",
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "Deployment",
+            "StatefulSet",
+            "Service",
+            "Pod"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "ports": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Ports",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "selector": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Selector",
+          "type": "object"
+        },
+        "stateful": {
+          "title": "Stateful",
+          "type": "boolean"
+        },
+        "target_id": {
+          "title": "Target Id",
+          "type": "string"
+        },
+        "uid": {
+          "title": "Uid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_id",
+        "name",
+        "kind",
+        "uid",
+        "selector",
+        "ports",
+        "desired_replicas",
+        "stateful",
+        "confidence"
+      ],
+      "title": "TopologyNode",
+      "type": "object"
+    },
+    "TopologySnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/TopologyEdge"
+          },
+          "title": "Edges",
+          "type": "array"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "graph_id": {
+          "title": "Graph Id",
+          "type": "string"
+        },
+        "manual_corrections": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Manual Corrections",
+          "type": "array"
+        },
+        "namespace": {
+          "title": "Namespace",
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/TopologyNode"
+          },
+          "title": "Nodes",
+          "type": "array"
+        },
+        "sandbox_id": {
+          "title": "Sandbox Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "live",
+            "fixture",
+            "replay"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "upstream_sha": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Upstream Sha"
+        }
+      },
+      "required": [
+        "source",
+        "graph_id",
+        "upstream_sha",
+        "generated_at",
+        "sandbox_id",
+        "namespace",
+        "nodes",
+        "edges",
+        "manual_corrections"
+      ],
+      "title": "TopologySnapshot",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "analysis": {
+      "$ref": "#/$defs/AnalysisResult"
+    },
+    "events": {
+      "items": {
+        "$ref": "#/$defs/RunEvent"
+      },
+      "maxItems": 128,
+      "title": "Events",
+      "type": "array"
+    },
+    "learning": {
+      "$ref": "#/$defs/LearningStatus"
+    },
+    "recorded_from": {
+      "const": "live",
+      "title": "Recorded From",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/SystemStateSnapshot"
+    },
+    "summary": {
+      "$ref": "#/$defs/RunSummary"
+    },
+    "topology": {
+      "$ref": "#/$defs/TopologySnapshot"
+    }
+  },
+  "required": [
+    "recorded_from",
+    "topology",
+    "state",
+    "learning",
+    "summary",
+    "analysis",
+    "events"
+  ],
+  "title": "ReplayBundle",
+  "type": "object"
+}

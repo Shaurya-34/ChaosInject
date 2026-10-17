@@ -1,0 +1,133 @@
+{
+  "$defs": {
+    "ActionParameters": {
+      "additionalProperties": false,
+      "properties": {
+        "desired_replicas": {
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Desired Replicas",
+          "type": "integer"
+        },
+        "previous_replicas": {
+          "minimum": 0,
+          "title": "Previous Replicas",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "previous_replicas",
+        "desired_replicas"
+      ],
+      "title": "ActionParameters",
+      "type": "object"
+    },
+    "EvidenceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_hash": {
+          "title": "Evidence Hash",
+          "type": "string"
+        },
+        "pointer": {
+          "title": "Pointer",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "evidence_hash",
+        "pointer"
+      ],
+      "title": "EvidenceRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "action_id": {
+      "title": "Action Id",
+      "type": "string"
+    },
+    "auto_revert_requested": {
+      "title": "Auto Revert Requested",
+      "type": "boolean"
+    },
+    "evidence_refs": {
+      "items": {
+        "$ref": "#/$defs/EvidenceRef"
+      },
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "observation_seconds": {
+      "maximum": 120,
+      "minimum": 1,
+      "title": "Observation Seconds",
+      "type": "integer"
+    },
+    "parameters": {
+      "$ref": "#/$defs/ActionParameters"
+    },
+    "preconditions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Preconditions",
+      "type": "array"
+    },
+    "rationale": {
+      "title": "Rationale",
+      "type": "string"
+    },
+    "sandbox_id": {
+      "title": "Sandbox Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "target_id": {
+      "title": "Target Id",
+      "type": "string"
+    },
+    "template_id": {
+      "const": "stateless_replicas",
+      "title": "Template Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "action_id",
+    "template_id",
+    "sandbox_id",
+    "target_id",
+    "parameters",
+    "preconditions",
+    "rationale",
+    "evidence_refs",
+    "observation_seconds",
+    "auto_revert_requested"
+  ],
+  "title": "ActionProposal",
+  "type": "object"
+}

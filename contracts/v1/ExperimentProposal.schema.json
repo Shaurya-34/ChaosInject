@@ -1,0 +1,203 @@
+{
+  "$defs": {
+    "AbortLimits": {
+      "additionalProperties": false,
+      "properties": {
+        "error_rate": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Error Rate",
+          "type": "number"
+        },
+        "metric_max_age_seconds": {
+          "maximum": 120,
+          "minimum": 1,
+          "title": "Metric Max Age Seconds",
+          "type": "integer"
+        },
+        "minimum_samples": {
+          "minimum": 1,
+          "title": "Minimum Samples",
+          "type": "integer"
+        },
+        "p95_ms": {
+          "exclusiveMinimum": 0,
+          "title": "P95 Ms",
+          "type": "number"
+        },
+        "recovery_timeout_seconds": {
+          "maximum": 120,
+          "minimum": 1,
+          "title": "Recovery Timeout Seconds",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "error_rate",
+        "p95_ms",
+        "metric_max_age_seconds",
+        "recovery_timeout_seconds",
+        "minimum_samples"
+      ],
+      "title": "AbortLimits",
+      "type": "object"
+    },
+    "FaultParameters": {
+      "additionalProperties": false,
+      "properties": {
+        "duration_seconds": {
+          "maximum": 60,
+          "minimum": 1,
+          "title": "Duration Seconds",
+          "type": "integer"
+        },
+        "latency_ms": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latency Ms"
+        },
+        "pod_uid": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pod Uid"
+        },
+        "proxy_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Proxy Name"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "duration_seconds"
+      ],
+      "title": "FaultParameters",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "abort_limits": {
+      "$ref": "#/$defs/AbortLimits"
+    },
+    "catalog_id": {
+      "enum": [
+        "EXP-00",
+        "EXP-01",
+        "EXP-02",
+        "EXP-03"
+      ],
+      "title": "Catalog Id",
+      "type": "string"
+    },
+    "expected_blast_radius": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Expected Blast Radius",
+      "type": "array"
+    },
+    "expires_at": {
+      "format": "date-time",
+      "title": "Expires At",
+      "type": "string"
+    },
+    "fault_parameters": {
+      "$ref": "#/$defs/FaultParameters"
+    },
+    "hypothesis": {
+      "title": "Hypothesis",
+      "type": "string"
+    },
+    "load_profile_id": {
+      "title": "Load Profile Id",
+      "type": "string"
+    },
+    "policy_version": {
+      "title": "Policy Version",
+      "type": "string"
+    },
+    "proposal_id": {
+      "title": "Proposal Id",
+      "type": "string"
+    },
+    "reason": {
+      "title": "Reason",
+      "type": "string"
+    },
+    "sandbox_id": {
+      "title": "Sandbox Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "enum": [
+        "live",
+        "fixture",
+        "replay"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "target_id": {
+      "title": "Target Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source",
+    "proposal_id",
+    "catalog_id",
+    "sandbox_id",
+    "target_id",
+    "fault_parameters",
+    "hypothesis",
+    "reason",
+    "expected_blast_radius",
+    "load_profile_id",
+    "abort_limits",
+    "policy_version",
+    "expires_at"
+  ],
+  "title": "ExperimentProposal",
+  "type": "object"
+}

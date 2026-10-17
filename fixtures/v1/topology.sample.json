@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "source": "fixture",
+  "graph_id": "fixture-boutique-v1",
+  "upstream_sha": null,
+  "generated_at": "2026-10-10T00:00:00Z",
+  "sandbox_id": "fixture-bosch-ananya",
+  "namespace": "boutique",
+  "nodes": [
+    {"resource_id":"boutique/deployment/frontend","kind":"Deployment","namespace":"boutique","name":"frontend","uid":null,"selector":{"app":"frontend"},"ports":[{"name":"http","port":80}],"desired_replicas":1,"ready_replicas":null,"stateful":false,"confidence":1.0},
+    {"resource_id":"boutique/deployment/cartservice","kind":"Deployment","namespace":"boutique","name":"cartservice","uid":null,"selector":{"app":"cartservice"},"ports":[{"name":"grpc","port":7070}],"desired_replicas":1,"ready_replicas":null,"stateful":false,"confidence":1.0},
+    {"resource_id":"boutique/service/redis-cart","kind":"Service","namespace":"boutique","name":"redis-cart","uid":null,"selector":{"app":"redis-cart"},"ports":[{"name":"tcp-redis","port":6379}],"desired_replicas":null,"ready_replicas":null,"stateful":true,"confidence":1.0}
+  ],
+  "edges": [
+    {"caller":"boutique/deployment/frontend","dependency":"boutique/deployment/cartservice","protocol":"gRPC","evidence":"sample application configuration; illustrative only","source_ref":"fixture://topology.sample.json#/edges/0","confidence":0.4},
+    {"caller":"boutique/deployment/cartservice","dependency":"boutique/service/redis-cart","protocol":"TCP","evidence":"sample application configuration; illustrative only","source_ref":"fixture://topology.sample.json#/edges/1","confidence":0.4}
+  ],
+  "manual_corrections": []
+}

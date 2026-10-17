@@ -1,0 +1,2 @@
+import {defineConfig} from '@playwright/test';
+export default defineConfig({testDir:'tests',workers:1,fullyParallel:false,use:{channel:'chromium',baseURL:'http://127.0.0.1:8200',viewport:{width:1440,height:1000},trace:'off'},webServer:{command:process.platform==='win32'?'..\\.venv\\Scripts\\python.exe ..\\scripts\\browser-test-server.py':'../.venv/bin/python ../scripts/browser-test-server.py',url:'http://127.0.0.1:8200',reuseExistingServer:false,timeout:30000},reporter:'list'});

@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "source": "fixture",
+  "decision_id": "fixture-block",
+  "request_id": "fixture-query",
+  "decision": "BLOCK",
+  "rule_ids": [
+    "MODULE_NOT_INTEGRATED"
+  ],
+  "policy_version": "fixture",
+  "state_id": "fixture-state",
+  "plan_estimate": null,
+  "prediction": null,
+  "reasons": [
+    "SQL policy not connected"
+  ],
+  "recommendations": [
+    "Connect owner module"
+  ],
+  "executed": false,
+  "intent_id": null
+}

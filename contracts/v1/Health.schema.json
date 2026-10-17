@@ -1,0 +1,81 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "adaptive_rollback_enabled": {
+      "const": false,
+      "default": false,
+      "title": "Adaptive Rollback Enabled",
+      "type": "boolean"
+    },
+    "context": {
+      "title": "Context",
+      "type": "string"
+    },
+    "dependencies": {
+      "additionalProperties": {
+        "type": "boolean"
+      },
+      "title": "Dependencies",
+      "type": "object"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "mutations_enabled": {
+      "title": "Mutations Enabled",
+      "type": "boolean"
+    },
+    "namespace": {
+      "title": "Namespace",
+      "type": "string"
+    },
+    "sandbox_id": {
+      "title": "Sandbox Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "enum": [
+        "live",
+        "fixture",
+        "replay"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "sql_execution_enabled": {
+      "title": "Sql Execution Enabled",
+      "type": "boolean"
+    },
+    "status": {
+      "enum": [
+        "ready",
+        "degraded"
+      ],
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source",
+    "status",
+    "dependencies",
+    "sandbox_id",
+    "context",
+    "namespace",
+    "mutations_enabled",
+    "sql_execution_enabled",
+    "limitations"
+  ],
+  "title": "Health",
+  "type": "object"
+}

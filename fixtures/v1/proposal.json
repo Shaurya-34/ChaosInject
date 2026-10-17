@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "source": "fixture",
+  "proposal_id": "fixture-proposal",
+  "catalog_id": "EXP-00",
+  "sandbox_id": "fixture-sandbox",
+  "target_id": "cartservice",
+  "fault_parameters": {
+    "schema_version": "1.0",
+    "duration_seconds": 30,
+    "latency_ms": null,
+    "pod_uid": null,
+    "proxy_name": null
+  },
+  "hypothesis": "Cart availability falls during a service pause.",
+  "reason": "Illustrate downstream impact on cart and checkout; synthetic proposal.",
+  "expected_blast_radius": [
+    "cartservice",
+    "frontend",
+    "checkoutservice"
+  ],
+  "load_profile_id": "fixture-load",
+  "abort_limits": {
+    "schema_version": "1.0",
+    "error_rate": 0.15,
+    "p95_ms": 1000.0,
+    "metric_max_age_seconds": 5,
+    "recovery_timeout_seconds": 120,
+    "minimum_samples": 30
+  },
+  "policy_version": "fixture-v1",
+  "expires_at": "2026-10-10T08:01:00Z"
+}

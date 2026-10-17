@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0",
+  "source": "fixture",
+  "state_id": "fixture-state",
+  "captured_at": "2026-10-10T08:00:00Z",
+  "valid_until": "2026-10-10T08:00:30Z",
+  "sandbox_id": "fixture-sandbox",
+  "ready_by_workload": {
+    "frontend": {
+      "schema_version": "1.0",
+      "ready": 1,
+      "desired": 1,
+      "missing_reason": null
+    },
+    "checkoutservice": {
+      "schema_version": "1.0",
+      "ready": 1,
+      "desired": 1,
+      "missing_reason": null
+    },
+    "cartservice": {
+      "schema_version": "1.0",
+      "ready": 1,
+      "desired": 1,
+      "missing_reason": null
+    },
+    "redis-cart": {
+      "schema_version": "1.0",
+      "ready": 1,
+      "desired": 1,
+      "missing_reason": null
+    }
+  },
+  "request_rate": 8.0,
+  "error_rate": null,
+  "p95_ms": null,
+  "db_connections_used": null,
+  "db_connections_limit": null,
+  "cpu_utilization": null,
+  "memory_utilization": null,
+  "missing_features": [
+    "db_connections_used: SQL lab disconnected",
+    "db_connections_limit: SQL lab disconnected",
+    "cpu_utilization: collector unavailable",
+    "memory_utilization: collector unavailable",
+    "p95_ms: probe unavailable",
+    "error_rate: probe unavailable"
+  ],
+  "active_fault_id": null
+}

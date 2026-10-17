@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0",
+  "source": "fixture",
+  "run_id": "fixture-run",
+  "mode": "deterministic_fallback",
+  "measured_facts": [],
+  "hypotheses": [
+    {
+      "schema_version": "1.0",
+      "title": "Cart path depends on one service",
+      "explanation": "The fixture contains 30 failed cart attempts out of 120 during the fault window. Verify this hypothesis on the actual deployment.",
+      "status": "insufficient_evidence",
+      "priority": 1,
+      "evidence_refs": [
+        {
+          "schema_version": "1.0",
+          "run_id": "fixture-run",
+          "evidence_hash": "bdedd093ff17df05430205244d043e854b2f396a0f2f38eeeeb1add861ba8d90",
+          "pointer": "/phase_summaries/1/operations/cart/failed"
+        }
+      ]
+    }
+  ],
+  "alternatives": [
+    "Workload or transport failure could also affect cart behavior"
+  ],
+  "recommendations": [
+    {
+      "schema_version": "1.0",
+      "title": "Test bounded timeouts and graceful degradation",
+      "explanation": "Review cart and checkout timeout handling, then repeat the same workload to measure any benefit. No numeric benefit is claimed.",
+      "status": "predicted",
+      "priority": 1,
+      "evidence_refs": [
+        {
+          "schema_version": "1.0",
+          "run_id": "fixture-run",
+          "evidence_hash": "bdedd093ff17df05430205244d043e854b2f396a0f2f38eeeeb1add861ba8d90",
+          "pointer": "/phase_summaries/1/operations/cart/failed"
+        }
+      ]
+    }
+  ],
+  "evidence_refs": [
+    {
+      "schema_version": "1.0",
+      "run_id": "fixture-run",
+      "evidence_hash": "bdedd093ff17df05430205244d043e854b2f396a0f2f38eeeeb1add861ba8d90",
+      "pointer": "/phase_summaries/1/operations/cart/failed"
+    }
+  ],
+  "limitations": [
+    "Fixture-only illustration; no live measured facts",
+    "Priority rubric: safety first, affected business operations second, evidence strength third",
+    "Reasoning model unavailable"
+  ]
+}

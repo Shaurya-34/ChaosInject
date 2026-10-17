@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "proposal_id": "fixture-proposal",
+  "proposal_hash": "1ecfd4d1f34455ed3b94915c71f55dd10c018b556809135068f2ce7bcffc6aa9",
+  "valid": false,
+  "checks": [
+    {
+      "schema_version": "1.0",
+      "name": "expiry",
+      "passed": false,
+      "reason": "Proposal expired"
+    }
+  ],
+  "rejection_codes": [
+    "EXPIRED"
+  ],
+  "sandbox_id": "fixture-sandbox",
+  "target_id": "cartservice",
+  "policy_version": "fixture-v1",
+  "expires_at": "2026-10-10T08:01:00Z"
+}

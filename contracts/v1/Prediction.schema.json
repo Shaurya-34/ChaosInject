@@ -1,0 +1,60 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "cold_start": {
+      "title": "Cold Start",
+      "type": "boolean"
+    },
+    "drift_status": {
+      "enum": [
+        "cold_start",
+        "stable",
+        "drift",
+        "unknown"
+      ],
+      "title": "Drift Status",
+      "type": "string"
+    },
+    "duration_ms": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Duration Ms"
+    },
+    "learner_version": {
+      "title": "Learner Version",
+      "type": "string"
+    },
+    "pre_update_sample_count": {
+      "minimum": 0,
+      "title": "Pre Update Sample Count",
+      "type": "integer"
+    },
+    "quality_note": {
+      "title": "Quality Note",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "duration_ms",
+    "learner_version",
+    "pre_update_sample_count",
+    "cold_start",
+    "drift_status",
+    "quality_note"
+  ],
+  "title": "Prediction",
+  "type": "object"
+}

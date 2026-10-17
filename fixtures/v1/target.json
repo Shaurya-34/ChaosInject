@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "target_id": "cartservice",
+  "sandbox_id": "fixture-sandbox",
+  "namespace": "boutique",
+  "kind": "Deployment",
+  "name": "cartservice",
+  "uid": "fixture-cartservice",
+  "selector": {
+    "app": "cartservice"
+  },
+  "allowed_fault_ids": [
+    "EXP-00"
+  ],
+  "allowed_template_ids": [],
+  "dependency_metadata": {},
+  "route_metadata": {},
+  "provenance": "synthetic; not enrolled"
+}

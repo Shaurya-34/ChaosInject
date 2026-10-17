@@ -1,0 +1,48 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "error_rate": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Error Rate",
+      "type": "number"
+    },
+    "metric_max_age_seconds": {
+      "maximum": 120,
+      "minimum": 1,
+      "title": "Metric Max Age Seconds",
+      "type": "integer"
+    },
+    "minimum_samples": {
+      "minimum": 1,
+      "title": "Minimum Samples",
+      "type": "integer"
+    },
+    "p95_ms": {
+      "exclusiveMinimum": 0,
+      "title": "P95 Ms",
+      "type": "number"
+    },
+    "recovery_timeout_seconds": {
+      "maximum": 120,
+      "minimum": 1,
+      "title": "Recovery Timeout Seconds",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "error_rate",
+    "p95_ms",
+    "metric_max_age_seconds",
+    "recovery_timeout_seconds",
+    "minimum_samples"
+  ],
+  "title": "AbortLimits",
+  "type": "object"
+}

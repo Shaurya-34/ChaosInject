@@ -1,0 +1,201 @@
+{
+  "$defs": {
+    "LearningFeatures": {
+      "additionalProperties": false,
+      "properties": {
+        "connection_utilization": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Connection Utilization"
+        },
+        "error_rate": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error Rate"
+        },
+        "estimated_output_bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Estimated Output Bytes"
+        },
+        "has_join": {
+          "title": "Has Join",
+          "type": "boolean"
+        },
+        "has_sort": {
+          "title": "Has Sort",
+          "type": "boolean"
+        },
+        "p95_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "P95 Ms"
+        },
+        "ready_fraction": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ready Fraction"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "select_operation": {
+          "title": "Select Operation",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "estimated_output_bytes",
+        "select_operation",
+        "has_join",
+        "has_sort",
+        "p95_ms",
+        "error_rate",
+        "connection_utilization",
+        "ready_fraction"
+      ],
+      "title": "LearningFeatures",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "active_fault_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Active Fault Id"
+    },
+    "captured_at": {
+      "format": "date-time",
+      "title": "Captured At",
+      "type": "string"
+    },
+    "duration_ms": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Duration Ms"
+    },
+    "features": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LearningFeatures"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "kind": {
+      "enum": [
+        "arrival",
+        "completed",
+        "censored",
+        "failed"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "output_rows": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Output Rows"
+    },
+    "request_id": {
+      "title": "Request Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "enum": [
+        "live",
+        "fixture",
+        "replay"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "state_id": {
+      "title": "State Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source",
+    "request_id",
+    "captured_at",
+    "state_id",
+    "kind",
+    "features",
+    "duration_ms",
+    "output_rows",
+    "active_fault_id"
+  ],
+  "title": "LearningObservation",
+  "type": "object"
+}

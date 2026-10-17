@@ -1,3 +1,22 @@
 results/
 __pycache__/
 work_distribution.txt
+
+# From AI-Chaos-Pilot
+.venv/
+node_modules/
+frontend/dist/
+.pytest_cache/
+.env
+.env.*
+!.env.example
+*.log
+work/
+outputs/
+test-results/
+playwright-report/
+*.egg-info/
+*.py[cod]
+*.tsbuildinfo
+.coverage
+sandbox.identity.json

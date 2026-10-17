@@ -1,0 +1,60 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "accepted_at": {
+      "format": "date-time",
+      "title": "Accepted At",
+      "type": "string"
+    },
+    "affected_run_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Affected Run Ids",
+      "type": "array"
+    },
+    "cleanup_status": {
+      "enum": [
+        "verified",
+        "failed",
+        "not_applicable",
+        "pending"
+      ],
+      "title": "Cleanup Status",
+      "type": "string"
+    },
+    "request_id": {
+      "title": "Request Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "enum": [
+        "live",
+        "fixture",
+        "replay"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "stop_latched": {
+      "title": "Stop Latched",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "source",
+    "request_id",
+    "accepted_at",
+    "stop_latched",
+    "affected_run_ids",
+    "cleanup_status"
+  ],
+  "title": "StopReceipt",
+  "type": "object"
+}

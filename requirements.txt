@@ -1,0 +1,2 @@
+# Canonical tested dependency versions
+-r requirements.lock
