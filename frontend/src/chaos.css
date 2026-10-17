@@ -56,3 +56,11 @@ button.link{background:none;border:0;padding:0 6px 0 0;color:#0b8178;text-decora
 .firstrun-item p{margin:6px 0 8px;font-size:12px;color:#3b4a6b}
 .chaos>*,.firstrun-item{min-width:0}
 .firstrun-command{display:block;max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere;background:#102b34;color:#cfe3e8;border-radius:6px;padding:8px 12px;font:11px ui-monospace,monospace}
+.chaos .catalog{flex-wrap:wrap}
+.chaos .catalog>div{flex:1 1 140px;min-width:0;overflow-wrap:anywhere}
+.chaos .panel-title{flex-wrap:wrap;gap:8px 12px}
+.chaos .panel-title>span:last-child{display:flex;flex-wrap:wrap;gap:8px}
+.suggest-row{flex-wrap:wrap}
+.suggest-row>div{flex:1 1 180px;min-width:0;overflow-wrap:anywhere}
+.finding-card{overflow-wrap:anywhere}
+.context{flex-wrap:wrap;min-width:0}

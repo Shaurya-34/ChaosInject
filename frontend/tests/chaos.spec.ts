@@ -345,13 +345,39 @@ test('Prometheus being down is a quiet hint, and run detail still works',async({
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
+// CI runs Linux, whose default fonts are wider than Windows or macOS. Forcing wide fonts makes the phone-width
+// checks mean the same thing on every machine.
+async function useWideFonts(page:Page){
+  await page.addStyleTag({content:"*{font-family:Verdana,Georgia,sans-serif !important} code,pre,.firstrun-command,.catalog-id,.score-chip,.chaos-log{font-family:'Courier New','Lucida Console',monospace !important}"});
+}
+async function overflowing(page:Page):Promise<string[]>{
+  return page.evaluate(()=>{
+    const w=window.innerWidth;
+    const wide=document.documentElement.scrollWidth>w;
+    const els=Array.from(document.querySelectorAll('body *')).filter(e=>e.getBoundingClientRect().right>w+1&&!e.closest('.chaos-table-wrap')&&!e.closest('svg')&&!e.closest('details:not([open])'));
+    return wide?els.slice(0,12).map(e=>`${e.tagName.toLowerCase()}.${e.getAttribute('class')||''} right=${Math.round(e.getBoundingClientRect().right)}`):[];
+  });
+}
+
+test('with data on screen the page fits a phone screen even with wide fonts',async({page})=>{
+  await mockChaos(page,idle);
+  await page.setViewportSize({width:390,height:844});await openChaosRuns(page);
+  await page.getByRole('row',{name:/hotel_geo_stop/}).click();
+  await expect(page.getByLabel('Run detail')).toBeVisible();
+  await useWideFonts(page);
+  await page.waitForTimeout(300);
+  expect(await overflowing(page)).toEqual([]);
+});
+
 test('every problem at once is listed, uses cold colours and fits a phone screen',async({page})=>{
   await mockChaos(page,{...idle,execution_enabled:false},undefined,undefined,nullScore,noFindings,undefined,
     env({execution_enabled:false,runs_saved:0,sandbox:{url:'http://127.0.0.1:5000/hotels',reachable:false,status:null},prometheus:{reachable:false,status:null}}),[]);
   await page.setViewportSize({width:390,height:844});await openChaosRuns(page);
   for(const id of ['execution','sandbox','prometheus','no-runs'])await expect(checklist(page).locator(`[data-item="${id}"]`)).toBeVisible();
   expect(await warmColours(page)).toEqual([]);
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth)).toBe(false);
+  await useWideFonts(page);
+  await page.waitForTimeout(300);
+  expect(await overflowing(page)).toEqual([]);
 });
 
 test('the environment status refreshes, so starting the sandbox clears its item',async({page})=>{
