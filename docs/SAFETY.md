@@ -60,6 +60,23 @@ python -m chaos.hooks list              # table of every run
 python -m chaos.hooks show <run_id>     # full record
 ```
 
+## Run lock, kill switch and leftover faults
+
+- **One run at a time.** The controller creates `results/.active_run.json` (its pid) with an
+  atomic exclusive create, and removes it when it exits. A lock whose pid is dead is stale and
+  is replaced by the next run.
+- **Kill switch.** `results/.stop_request` (written by the dashboard's Stop button) makes the
+  running controller stop and restore at its next probe.
+- **Leftover faults.** A marker file records an injected fault until it is restored. If the
+  controller is killed mid-fault, the next run (or `--recover` / the dashboard's Recover)
+  restores it first.
+
+Known limits, acceptable for a single local operator:
+
+- Two controllers that find the same stale lock at the same instant could both replace it and run.
+- If the OS reuses a dead controller's pid, its stale lock looks live and new runs are refused.
+  Delete `results/.active_run.json` after checking that no controller is running.
+
 ## Tests
 
 ```bash
