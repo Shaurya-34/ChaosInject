@@ -2757,6 +2757,26 @@
         ]
       }
     },
+    "/api/v1/chaos/environment": {
+      "get": {
+        "description": "What a first run needs: execution enabled, the hotel sandbox answering, Prometheus ready, saved runs.",
+        "operationId": "environment_api_v1_chaos_environment_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Environment",
+        "tags": [
+          "chaos"
+        ]
+      }
+    },
     "/api/v1/chaos/experiments": {
       "get": {
         "operationId": "experiments_api_v1_chaos_experiments_get",
