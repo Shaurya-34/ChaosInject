@@ -29,7 +29,7 @@ Dependency mapper ──► Experiment controller ──► Chaos tool (fault in
 | Sample app sandbox | `sandbox/hotel/` (DeathStarBench Hotel Reservation, 24 containers) |
 | Dependency map | `docs/dependency-map.json` (+ `.mmd` diagram) |
 | Experiment controller + health probes | `chaos/controller.py` |
-| Fault types | `chaos/faults.py` (container stop; network delay via Pumba in #28) |
+| Fault types | `chaos/faults.py` (container stop; network delay and packet loss via Pumba netem) |
 | Safety rules + results store | `chaos/hooks.py`, thresholds in `chaos/policy.json` |
 | AI planner / analysis | Day 2: #11, #13 |
 
@@ -45,7 +45,7 @@ The controller enforces safety, not the AI. AI output is a recommendation, never
 ## Status
 
 - **Sample app:** [DeathStarBench Hotel Reservation](https://github.com/delimitrou/DeathStarBench/tree/master/hotelReservation) (Apache-2.0). Go gRPC microservices with Consul, memcached, MongoDB, Jaeger tracing and a wrk2 load generator, all on Docker Compose.
-- **Chaos tool:** container stop via the Docker CLI; network faults via [Pumba](https://github.com/alexei-led/pumba) (chosen in #4; network delay lands with #28)
+- **Chaos tool:** container stop via the Docker CLI; network delay and packet loss via [Pumba](https://github.com/alexei-led/pumba) netem (chosen in #4)
 - **Day 1:** sandbox running, dependency map, baseline, real faults injected, safety stop tested. Demo runbook: [docs/demo-day1.md](docs/demo-day1.md)
 - **Progress:** tracked on the [project board](https://github.com/users/Shaurya-34/projects/2)
 
@@ -56,6 +56,7 @@ The controller enforces safety, not the AI. AI output is a recommendation, never
 | Stop `memcached-rate` | `/hotels` fails, and **the `rate` service crashes**: it calls `log.Panic` on any cache error (`services/rate/server.go:114`). It doesn't recover until restarted by hand. The same pattern exists in profile, reservation and review |
 | Stop `geo` | `/hotels` fails (a hard dependency) and recovers about 1s after `geo` returns |
 | 200 ms network delay on `rate` | `/hotels` goes from 30–50 ms to **1.3–1.9 s, then times out (>2 s)**: one slow backend amplifies 6–10× at the edge. The latency/consecutive-failure safety stop fires; it recovers instantly once the delay is removed |
+| 30% packet loss on `rate` | `/hotels` goes from 23–47 ms to **~1.5 s, with one timeout in four probes**: lost packets turn into TCP retransmission waits, so modest loss on one backend becomes a 30× slowdown at the edge. The latency safety stop fires after 4 probes; it recovers instantly once the loss is removed |
 
 ## Docs
 
@@ -235,6 +236,8 @@ python -m chaos.controller experiments/dummy_web_stop.json
 # Real app (stack from Setup above must be running):
 python -m chaos.controller experiments/hotel_geo_stop.json
 python -m chaos.controller experiments/hotel_memcached_rate_stop.json
+python -m chaos.controller experiments/hotel_rate_delay.json   # amd64 only; not observable on Docker Desktop for Mac
+python -m chaos.controller experiments/hotel_rate_loss.json    # same caveat
 
 # Past runs:
 python -m chaos.hooks list

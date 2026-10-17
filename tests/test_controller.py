@@ -310,6 +310,55 @@ class ControllerTest(unittest.TestCase):
                 f.restore("web")
 
 
+class PacketLossTest(unittest.TestCase):
+    def test_params_and_registry(self):
+        f = faults.FAULTS["packet_loss"]({"loss_percent": 30, "duration_s": 15})
+        self.assertIsInstance(f, faults.PacketLoss)
+        self.assertEqual((f.loss_percent, f.duration_s), (30, 15))
+
+    def test_rejects_bad_percent(self):
+        for bad in (0, -5, 101):
+            with self.assertRaises(ValueError):
+                faults.PacketLoss({"loss_percent": bad})
+
+    def test_inject_runs_pumba_loss(self):
+        f = faults.PacketLoss({"loss_percent": 30, "duration_s": 10})
+        with mock.patch.object(faults.subprocess, "run") as m, \
+             mock.patch.object(f, "_qdisc", return_value="qdisc netem 1: root loss 30%"):
+            f.inject("web")
+        cmd = m.call_args.args[0]
+        self.assertEqual(m.call_args.kwargs["timeout"], faults.DOCKER_TIMEOUT_S)
+        self.assertIn("pumba_loss_web", cmd)
+        self.assertEqual(cmd[cmd.index("loss"):], ["loss", "--percent", "30", "web"])
+        self.assertNotIn("delay", cmd)
+
+    def test_inject_never_active_raises(self):
+        f = faults.PacketLoss()
+        times = [0.0, 25.0]
+        with mock.patch.object(faults.subprocess, "run", return_value=mock.Mock(returncode=0, stdout="")), \
+             mock.patch.object(f, "_qdisc", return_value="qdisc noqueue 0: root"), \
+             mock.patch.object(faults.time, "monotonic", side_effect=lambda: times.pop(0) if times else 30.0), \
+             mock.patch.object(faults.time, "sleep"):
+            with self.assertRaisesRegex(faults.InjectError, "netem loss never appeared"):
+                f.inject("web")
+
+    def test_restore_stops_its_own_pumba_and_verifies(self):
+        f = faults.PacketLoss()
+        with mock.patch.object(faults.subprocess, "run") as m, \
+             mock.patch.object(f, "_qdisc", return_value="qdisc noqueue 0: root"):
+            f.restore("web")
+        stopped = [c.args[0] for c in m.call_args_list if "stop" in c.args[0]]
+        self.assertEqual(stopped[0][-1], "pumba_loss_web")
+
+    def test_controller_runs_packet_loss_cycle(self):
+        policy = {**POLICY, "allowed_faults": ["packet_loss"]}
+        f = FakeFault()
+        r = run({**EXP, "fault": "packet_loss", "loss_percent": 30}, policy, fault=f,
+                probe_fn=probe_for(f), should_stop=NEVER_STOP)
+        self.assertEqual(f.calls, ["inject", "restore"])
+        self.assertTrue(r["recovered"])
+
+
 def dead_pid():
     p = subprocess.Popen([sys.executable, "-c", "pass"])
     p.wait()
