@@ -20,9 +20,18 @@ const availableMetrics={window:{start:t0-5,end:t0+6},step_s:1,available:true,rea
   controller_latency_ms:series(i=>(i>=8?5:40+i)),fault_active:series(i=>(i>=8&&i<11?1:0)),probe_success:series(i=>(i>=8?0:1)),
   probe_duration_ms:series(i=>14+i),target_net_tx_pps:series(i=>50-i),target_memory_bytes:series(()=>52428800),target_last_seen_age_s:series(i=>(i>=8?i:0))}};
 const defaultMetrics={status:200,body:{window:{start:t0,end:t0},step_s:1,available:false,reason:'no data in this window (the observability stack was not running)',series:{}}};
+const pair=(fault:string,score:number,extra:object={})=>({fault,score,uncapped_score:score,capped:false,cap_reason:null,not_recovered:false,scored_run_id:run.run_id,run_ids:[run.run_id],
+  inputs:{recovered:true,error_rate:1,baseline_p95_ms:42,during_p95_ms:null,recovery_s:1.2,recovery_timeout_s:30,stop_reason:'safety: 5 consecutive failures'},...extra});
+const partialScore={formula_version:1,score:65.2,headline:'65.2 (partial: 2 of 9 pairs tested)',complete:false,weights:{recovered:0.4,error:0.25,latency:0.2,recovery_time:0.15},safety_stop_cap:50,
+  coverage:{tested:2,possible:9,fraction:0.2222,untested:[{target:'hotel-sandbox-rate-1',fault:'packet_loss'}]},
+  targets:[{target:'hotel-sandbox-geo-1',node:'geo',score:50,criticality:0.45,weight:0.45,pairs:[pair('container_stop',50,{uncapped_score:55,capped:true,cap_reason:'safety stop'})]},
+           {target:'hotel-sandbox-memcached-rate-1',node:'memcached-rate',score:0,criticality:0.45,weight:0.45,pairs:[pair('container_stop',0,{not_recovered:true})]}],
+  unmapped_targets:[],runs_not_scored:[]};
+const nullScore={formula_version:1,score:null,headline:'n/a (no scored runs yet)',complete:false,weights:{},safety_stop_cap:50,
+  coverage:{tested:0,possible:9,fraction:0,untested:[]},targets:[],unmapped_targets:[],runs_not_scored:[]};
 const idle={running:false,experiment:null,pid:null,started_at:null,exit_code:null,run_id:null,fault_active:false,fault:null,stop_requested:false,log_tail:[]};
 
-async function mockChaos(page:Page,active:object,onRun?:()=>{status:number,body:object},metrics:{status:number,body:object}=defaultMetrics){
+async function mockChaos(page:Page,active:object,onRun?:()=>{status:number,body:object},metrics:{status:number,body:object}=defaultMetrics,scoreBody:object=partialScore){
   await page.route('**/api/v1/chaos/**',route=>{
     const url=new URL(route.request().url());const path=url.pathname.replace('/api/v1/chaos','');
     const json=(body:object,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
@@ -30,6 +39,7 @@ async function mockChaos(page:Page,active:object,onRun?:()=>{status:number,body:
     if(path==='/runs')return json(index);
     if(path==='/runs/'+run.run_id+'/metrics')return json(metrics.body,metrics.status);
     if(path==='/runs/'+run.run_id)return json(run);
+    if(path==='/score')return json(scoreBody);
     if(path==='/findings')return json(findings);
     if(path.startsWith('/findings/report'))return route.fulfill({status:200,contentType:'text/markdown',body:'# Chaos findings'});
     if(path==='/proposals')return json(proposals);
@@ -202,4 +212,37 @@ test('the colour scanner itself detects warm colours and passes cold ones',async
   expect((await warmColours(page)).length).toBeGreaterThanOrEqual(4);
   await page.setContent('<div style="background:#5f3dc4;color:#fff;border:1px solid #d0bfff">x</div><div style="background:#0b8178">y</div><svg><rect fill="#d0bfff" stroke="#1864ab" width="5" height="5"/></svg>');
   expect(await warmColours(page)).toEqual([]);
+});
+
+test('the header chip shows the headline score and opens the Chaos runs page',async({page})=>{
+  await mockChaos(page,idle);
+  await page.goto('/');await page.getByLabel('Operator token').fill(token);await page.getByRole('button',{name:'Connect workspace'}).click();
+  const chip=page.getByRole('button',{name:/Resilience score: 65.2/});
+  await expect(chip).toBeVisible();await expect(chip).toContainText('65.2');await expect(chip).toContainText('partial');
+  await chip.click();
+  await expect(page.getByLabel('Resilience score',{exact:true})).toBeVisible();
+});
+
+test('the score card shows the number, coverage, the cap and the traceable runs',async({page})=>{
+  await mockChaos(page,idle);await openChaosRuns(page);
+  const card=page.getByLabel('Resilience score',{exact:true});
+  await expect(card.getByLabel('Resilience score 65.2')).toBeVisible();
+  await expect(card).toContainText('65.2 (partial: 2 of 9 pairs tested)');
+  await expect(card.getByLabel('Coverage')).toContainText('2 of 9');
+  await card.getByText('Breakdown by target and fault').click();
+  await expect(card).toContainText('capped: safety stop (from 55)');
+  await expect(card).toContainText('not recovered → 0');
+  await card.getByRole('button',{name:run.run_id}).first().click();
+  await expect(page.getByLabel('Run detail')).toBeVisible();
+});
+
+test('with no scored runs the score is n/a and says what to do next',async({page})=>{
+  await mockChaos(page,idle,undefined,undefined,nullScore);
+  await page.goto('/');await page.getByLabel('Operator token').fill(token);await page.getByRole('button',{name:'Connect workspace'}).click();
+  await expect(page.getByRole('button',{name:/Resilience score: n\/a/})).toContainText('n/a');
+  await page.getByRole('button',{name:'Chaos runs',exact:true}).click();
+  const card=page.getByLabel('Resilience score',{exact:true});
+  await expect(card.getByLabel('Resilience score n/a')).toBeVisible();
+  await expect(card).toContainText('No scored runs yet');
+  await expect(card).not.toContainText(/0\/100/);
 });
