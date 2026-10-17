@@ -14,9 +14,12 @@ import sys
 import time
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
+from fastapi.responses import Response
 
 from app.api.errors import PortError
+from app.intelligence import injection_agent, monitoring_agent
+from app.intelligence.reasoning import provider_from_env
 
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:  # chaos/ lives at the repo root, beside backend/
@@ -25,9 +28,11 @@ if str(ROOT) not in sys.path:  # chaos/ lives at the repo root, beside backend/
 from chaos import controller, hooks  # noqa: E402
 
 EXPERIMENTS_DIR = ROOT / "experiments"
+DEPENDENCY_MAP = ROOT / "docs" / "dependency-map.json"
 NAME = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 RUN_ID = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 LOG_TAIL_LINES = 40
+FINDINGS_RUN_LIMIT = 200  # most recent saved runs the monitoring agent reads
 
 
 def _log_path():
@@ -66,6 +71,26 @@ def _log_tail():
         return _log_path().read_text(encoding="utf-8", errors="replace").splitlines()[-LOG_TAIL_LINES:]
     except FileNotFoundError:
         return []
+
+
+def _load_runs():
+    """Full records of the most recent saved runs, newest first; unreadable files are skipped."""
+    out = []
+    for row in reversed(hooks.list_results()[-FINDINGS_RUN_LIMIT:]):
+        try:
+            out.append(hooks.load_result(row["run_id"]))
+        except (FileNotFoundError, ValueError, KeyError):
+            continue
+    return out
+
+
+def _findings():
+    dep_map = json.loads(DEPENDENCY_MAP.read_text(encoding="utf-8"))
+    result = monitoring_agent.analyze(_load_runs(), dep_map)
+    provider, limitations = provider_from_env()
+    result["findings"] = monitoring_agent.enrich_explanations(result["findings"], provider)
+    result["limitations"] = limitations
+    return result
 
 
 def _saved_run_id(lines):
@@ -163,6 +188,30 @@ def create_router(execution_enabled: bool) -> APIRouter:
         finally:
             controller.release_lock()
         return {"restored": target}
+
+    @router.get("/proposals")
+    async def proposals():
+        """Ranked experiment proposals from the injection agent. Read-only: nothing is written or run."""
+        dep_map = json.loads(DEPENDENCY_MAP.read_text(encoding="utf-8"))
+        names = {p.stem for p in EXPERIMENTS_DIR.glob("*.json")}
+        names |= {json.loads(p.read_text(encoding="utf-8")).get("name", "") for p in EXPERIMENTS_DIR.glob("*.json")}
+        result = injection_agent.propose(dep_map, hooks.list_results(), _policy(), existing_experiments=names)
+        provider, limitations = provider_from_env()
+        result["proposals"] = injection_agent.enrich_rationales(result["proposals"], provider)
+        result["limitations"] = limitations
+        return result
+
+    @router.get("/findings")
+    async def findings():
+        """Weaknesses ranked by severity from the saved runs. Read-only."""
+        return _findings()
+
+    @router.get("/findings/report")
+    async def findings_report(format: str = Query("md", pattern="^(md|html)$")):
+        result = _findings()
+        if format == "html":
+            return Response(monitoring_agent.render_html(result), media_type="text/html; charset=utf-8")
+        return Response(monitoring_agent.render_markdown(result), media_type="text/markdown; charset=utf-8")
 
     @router.get("/runs")
     async def runs():

@@ -1,0 +1,30 @@
+.chaos{display:grid;gap:20px}
+.chaos code{font-size:11px}
+.chaos-banner{display:flex;align-items:center;gap:16px;background:#fff1f1;border:1px solid #edc6c7;color:#8a2f31;border-radius:10px;padding:16px 20px}
+.chaos-banner p{margin:4px 0 0}
+.chaos-banner button{margin-left:auto}
+.chaos-live .small-tag{background:#fff4d9;color:#826320}
+.chaos-log{background:#102b34;color:#cfe3e8;border-radius:8px;padding:12px;font:11px ui-monospace,monospace;overflow:auto;max-height:180px;margin:14px 0}
+.chaos-stop{background:#b14343;border-color:#b14343;color:white}
+.chaos-table-wrap{overflow:auto}
+.chaos-table{width:100%;border-collapse:collapse;font-size:12px}
+.chaos-table th{text-align:left;color:#72868e;font-weight:600;padding:8px;border-bottom:1px solid #dfe7e9;white-space:nowrap}
+.chaos-table td{padding:10px 8px;border-bottom:1px solid #edf1f2}
+.chaos-table tbody tr{cursor:pointer}
+.chaos-table tbody tr:hover,.chaos-table tr.selected{background:#f3faf8}
+.chaos-table tr.bad td{color:#b14343;font-weight:600;background:#fff6f6}
+.small-tag.bad{background:#fff0f0;color:#b14343;border-color:#edc6c7}
+.chaos-callout{display:flex;gap:14px;align-items:center;background:#f7f8f9;border:1px solid #dfe7e9;border-left:4px solid #587179;border-radius:6px;padding:12px 16px;margin:12px 0;font-size:12px}
+.chaos-callout.safety{border-left-color:#b14343;background:#fff6f6}
+.chaos-chart{margin:16px 0}
+.chaos-summary{margin-top:8px}
+.suggest-row{display:flex;gap:16px;align-items:flex-start;padding:16px 0;border-bottom:1px solid #edf1f2}
+.suggest-row p{margin:6px 0 0}
+.suggest-row button{margin-left:auto;white-space:nowrap}
+.chaos-suggest details{margin-top:14px;font-size:12px}
+.finding-card{border:1px solid #dfe7e9;border-left:5px solid #587179;border-radius:6px;padding:12px 16px;margin:12px 0;background:#fff}
+.finding-card p{margin:8px 0}
+.finding-card.sev1{border-left-color:#b14343;background:#fff8f8}.finding-card.sev2{border-left-color:#c57820}.finding-card.sev3{border-left-color:#b09a17}
+.small-tag.sev1{background:#fff0f0;color:#b14343;border-color:#edc6c7}
+button.link{background:none;border:0;padding:0 6px 0 0;color:#0b8178;text-decoration:underline;font-size:11px;font-family:ui-monospace,monospace;font-weight:500}
+.chaos-findings .panel-title button{font-size:12px;padding:6px 10px}
