@@ -56,6 +56,14 @@ def test_full_outage_off_the_core_path_is_not_a_critical_path_finding():
     assert sev([record(target="hotel-sandbox-user-1", failed=10)]) == [("hotel-sandbox-user-1", "container_stop", 3)]
 
 
+def test_non_critical_outage_has_its_own_label_not_latency_amplification():
+    outage = agent.analyze([record(target="hotel-sandbox-user-1", failed=10)], DEP_MAP)["findings"][0]
+    assert outage["severity_label"] == "Full outage of a non-critical path" and "latency" not in outage["title"]
+    slow = agent.analyze([record(target="hotel-sandbox-rate-1", fault="network_delay", during=1500.0)], DEP_MAP)["findings"][0]
+    assert slow["severity"] == 3 and slow["severity_label"] == "Latency amplification"
+    assert "Full outage of a non-critical path" in agent.render_markdown({"findings": [outage], "runs_analyzed": 1, "runs_without_findings": 0, "runs_not_evaluated": 0})
+
+
 def test_latency_amplification_is_severity_three():
     runs = [record(target="hotel-sandbox-rate-1", fault="network_delay", base=40.0, during=1500.0)]
     assert sev(runs) == [("hotel-sandbox-rate-1", "network_delay", 3)]

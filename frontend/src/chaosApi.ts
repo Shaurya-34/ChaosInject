@@ -20,6 +20,8 @@ export type ExperimentRow={id:string;name:string|null;target:string|null;fault:s
 export type ActiveRun={
   running:boolean;experiment:string|null;pid:number|null;started_at:number|null;exit_code:number|null;run_id:string|null;
   fault_active:boolean;fault:{target?:string;fault?:string}|null;stop_requested:boolean;log_tail:string[];
+  /** False when the API runs without CHAOS_EXECUTION_ENABLED; absent on older servers. */
+  execution_enabled?:boolean;
 };
 
 export type Proposal={
