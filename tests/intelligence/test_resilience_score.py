@@ -20,6 +20,7 @@ POLICY = json.loads((ROOT / "chaos" / "policy.json").read_text(encoding="utf-8")
 
 GEO, RATE, MEMC = "hotel-sandbox-geo-1", "hotel-sandbox-rate-1", "hotel-sandbox-memcached-rate-1"
 MEMC_PROFILE = "hotel-sandbox-memcached-profile-1"
+MEMC_RESERVE = "hotel-sandbox-memcached-reserve-1"
 _counter = iter(range(1, 10**6))
 
 
@@ -166,13 +167,13 @@ def test_no_scored_runs_means_null_not_zero():
 def test_coverage_counts_tested_pairs_of_the_possible_ones():
     out = score([record(GEO, "container_stop"), record(RATE, "network_delay")])
     cov = out["coverage"]
-    assert (cov["tested"], cov["possible"]) == (2, 12)  # 4 mapped allowed targets x 3 faults
-    assert len(cov["untested"]) == 10 and not out["complete"]
-    assert out["headline"] == "100 (partial: 2 of 12 pairs tested)"
+    assert (cov["tested"], cov["possible"]) == (2, 15)  # 5 mapped allowed targets x 3 faults
+    assert len(cov["untested"]) == 13 and not out["complete"]
+    assert out["headline"] == "100 (partial: 2 of 15 pairs tested)"
 
 
 def test_full_coverage_gives_a_plain_headline():
-    runs = [record(t, f) for t in (GEO, RATE, MEMC, MEMC_PROFILE) for f in ("container_stop", "network_delay", "packet_loss")]
+    runs = [record(t, f) for t in (GEO, RATE, MEMC, MEMC_PROFILE, MEMC_RESERVE) for f in ("container_stop", "network_delay", "packet_loss")]
     out = score(runs)
     assert out["complete"] and out["headline"] == "100" and out["coverage"]["untested"] == []
 
@@ -236,7 +237,7 @@ def save(**kw):
 
 def test_score_route_is_null_with_no_runs(client):
     body = client.get("/api/v1/chaos/score").json()
-    assert body["score"] is None and body["headline"].startswith("n/a") and body["coverage"]["possible"] == 12
+    assert body["score"] is None and body["headline"].startswith("n/a") and body["coverage"]["possible"] == 15
 
 
 def test_score_route_and_findings_carry_the_same_score(client):
