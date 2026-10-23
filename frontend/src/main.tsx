@@ -8,6 +8,7 @@ import {chaos,ChaosApiError} from './chaosApi';
 import {ScoreChip} from './Score';
 import './style.css';
 import './chaos.css';
+import './theme.css';
 
 type Page='System overview'|'Operations'|'Chaos runs'|'Findings';
 type DemoResult=Model<'DemoInjectionResult'>;
