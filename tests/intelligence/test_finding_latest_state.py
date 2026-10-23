@@ -9,7 +9,6 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app.adapters.fixtures import fixture_ports
 from app.api.config import Settings
 from app.intelligence import monitoring_agent as agent, resilience_score
 from app.intelligence.reasoning import LiveProvider
@@ -166,7 +165,7 @@ def test_the_findings_route_carries_the_status(tmp_path, monkeypatch):
     for kw in ({"recovered": False, "recovery_s": None, "failed": 10}, {"recovered": False, "recovery_s": None, "failed": 10}, {}):
         hooks.save_result({k: v for k, v in record(target=MEMC, **kw).items() if k not in ("run_id", "saved_at", "summary")})
         time.sleep(0.02)
-    with TestClient(create_app(Settings(operator_token=TOKEN), fixture_ports()), headers={"Authorization": "Bearer " + TOKEN}) as c:
+    with TestClient(create_app(Settings(operator_token=TOKEN)), headers={"Authorization": "Bearer " + TOKEN}) as c:
         body = c.get("/api/v1/chaos/findings").json()
         report = c.get("/api/v1/chaos/findings/report").text
     f = body["findings"][0]

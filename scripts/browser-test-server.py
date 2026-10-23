@@ -1,23 +1,15 @@
-"""Disposable local API/target for browser tests; no live modules or secrets."""
+"""Disposable local API for the browser tests: the real app and the built dashboard, no sandbox, no secrets."""
 import os
 import subprocess
 import sys
-import time
-env=os.environ.copy()
-env.update(DATA_MODE='demo',OPERATOR_TOKEN='browser-test-disposable-token-0000000000',FAKE_RUNTIME_ENABLED='false',LOCAL_API_PORT='8200',DEMO_TARGET_PORT='8290',DEMO_LATCH_FILE=os.path.join(os.path.dirname(__file__),'..','work','browser-stop.json'))
-from pathlib import Path
-Path(env['DEMO_LATCH_FILE']).unlink(missing_ok=True)
-processes=[]
+
+env = os.environ.copy()
+env.update(OPERATOR_TOKEN='browser-test-disposable-token-0000000000', LOCAL_API_PORT='8200')
+command = [sys.executable, '-m', 'uvicorn', 'app.main:create_app', '--factory', '--host', '127.0.0.1', '--port', '8200', '--no-access-log', '--log-level', 'critical']
+process = subprocess.Popen(command, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 try:
-    for app,port in [('app.demo_target:app','8290'),('app.main:create_app','8200')]:
-        command=[sys.executable,'-m','uvicorn',app,'--host','127.0.0.1','--port',port,'--no-access-log','--log-level','critical']
-        if app.endswith('create_app'): command.append('--factory')
-        processes.append(subprocess.Popen(command,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL))
-    while all(p.poll() is None for p in processes): time.sleep(.2)
-    raise SystemExit(1)
+    raise SystemExit(process.wait())
 finally:
-    for p in processes:
-        p.terminate()
-    for p in processes:
-        try: p.wait(timeout=3)
-        except subprocess.TimeoutExpired: p.kill()
+    process.terminate()
+    try: process.wait(timeout=3)
+    except subprocess.TimeoutExpired: process.kill()

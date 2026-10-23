@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.adapters.fixtures import fixture_ports
 from app.api.config import Settings
 from app.intelligence import monitoring_agent as agent
 from app.intelligence.reasoning import DeterministicProvider, MockProvider
@@ -194,7 +193,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(hooks, "RESULTS_DIR", tmp_path)
     hooks.save_result(record("one", target="hotel-sandbox-memcached-rate-1", recovered=False, recovery_s=None, failed=10))
     hooks.save_result(record("two", target="hotel-sandbox-rate-1", fault="network_delay", during=1500.0))
-    app = create_app(Settings(operator_token=TOKEN), fixture_ports())
+    app = create_app(Settings(operator_token=TOKEN))
     with TestClient(app, headers={"Authorization": "Bearer " + TOKEN}) as c:
         yield c
 
@@ -221,7 +220,7 @@ def test_findings_routes_need_the_token(client):
 
 def test_findings_with_no_runs_is_empty(tmp_path, monkeypatch):
     monkeypatch.setattr(hooks, "RESULTS_DIR", tmp_path)
-    app = create_app(Settings(operator_token=TOKEN), fixture_ports())
+    app = create_app(Settings(operator_token=TOKEN))
     with TestClient(app, headers={"Authorization": "Bearer " + TOKEN}) as c:
         body = c.get("/api/v1/chaos/findings").json()
     assert body["findings"] == [] and body["runs_analyzed"] == 0
