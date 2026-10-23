@@ -295,7 +295,14 @@ def up(args):
         run(sys.executable, ROOT / "sandbox/hotel/prepare.py")
     compose(HOTEL, "pull", "--ignore-buildable", "--quiet")
     compose(HOTEL, "up", "-d", "--build", "--quiet-pull")
-    wait_for("hotel frontend", HOTELS_URL, 300)
+    try:
+        wait_for("hotel frontend", HOTELS_URL, 120)
+    except SystemExit:
+        # Each service connects to its MongoDB once at start, and restart is "no" on purpose (a stopped fault must stay
+        # stopped), so a slow first start on a cold machine leaves some of them exited. Start those and wait again.
+        print("hotel frontend is not answering yet; starting any service that exited, then waiting again", flush=True)
+        compose(HOTEL, "up", "-d")
+        wait_for("hotel frontend", HOTELS_URL, 240)
     compose(OBS, "up", "-d", "--quiet-pull")
     wait_for("Prometheus", "http://127.0.0.1:9090/-/ready", 60)
     state = api_state()
