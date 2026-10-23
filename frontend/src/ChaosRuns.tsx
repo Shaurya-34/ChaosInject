@@ -10,7 +10,7 @@ const pct=(x:number|null|undefined)=>x==null?'n/a':`${Math.round(x*100)}%`;
 const ms=(x:number|null|undefined)=>x==null?'n/a':`${Math.round(x)} ms`;
 const secs=(x:number|null|undefined)=>x==null?'n/a':`${x.toFixed(1)} s`;
 
-export function ChaosRuns({source}:{source?:string}){
+export function ChaosRuns(){
   const [experiments,setExperiments]=useState<ExperimentRow[]>([]);
   const [runs,setRuns]=useState<IndexEntry[]>([]);
   const [suggested,setSuggested]=useState<Proposals>();
@@ -88,7 +88,7 @@ export function ChaosRuns({source}:{source?:string}){
   const leftover=!!active&&!active.running&&active.fault_active;
 
   return <div className="chaos">
-    <p className="muted">Saved results from <code>results/</code> via <code>/api/v1/chaos</code>. {source==='fixture'?'The API is in fixture mode, so any runs shown here may be synthetic examples. ':''}Starting, stopping and recovering need <code>CHAOS_EXECUTION_ENABLED=true</code> on the API.</p>
+    <p className="muted">Runs from your <code>results/</code> folder. Starting, stopping and recovering need <code>CHAOS_EXECUTION_ENABLED=true</code> on the API.</p>
     {message&&<div role="status" className="notice">{message}<button aria-label="Dismiss message" onClick={()=>setMessage('')}>×</button></div>}
 
     <FirstRunChecklist env={env}/>
