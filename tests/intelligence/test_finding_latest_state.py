@@ -172,3 +172,39 @@ def test_the_findings_route_carries_the_status(tmp_path, monkeypatch):
     f = body["findings"][0]
     assert f["status"] == "fixed_since" and f["runs_total"] == 3 and f["latest_run_id"] == f["run_ids"][-1]
     assert "**Status: Fixed since**" in report
+
+
+# --- operator stop ----------------------------------------------------------------------------------------
+
+
+def operator_stopped(**kw):
+    """The Stop button pressed right after injection: no fault-phase probe was recorded."""
+    return run(target=kw.pop("target", MEMC), total=0, stop="kill switch (operator stop)", **kw)
+
+
+def test_an_operator_stop_before_any_fault_probe_does_not_change_the_finding():
+    runs = [bad(), operator_stopped()]
+    analysis = agent.analyze(runs, DEP_MAP)
+    f = analysis["findings"][0]
+    assert f["status"] == "open" and f["severity"] == 1  # not "improved since": nothing was learned by the stopped run
+    assert f["run_ids"] == [runs[0]["run_id"]] and f["runs_total"] == 1
+    assert analysis["runs_not_evaluated"] == 1 and analysis["runs_analyzed"] == 2
+
+
+def test_an_operator_stop_alone_is_not_a_weakness():
+    analysis = agent.analyze([operator_stopped()], DEP_MAP)
+    assert analysis["findings"] == [] and analysis["runs_not_evaluated"] == 1
+
+
+def test_an_operator_stop_after_healthy_probes_is_not_degradation():
+    healthy_then_stopped = run(target=MEMC, stop="kill switch (operator stop)")  # probes were fine
+    assert agent.analyze([healthy_then_stopped], DEP_MAP)["findings"] == []
+
+
+def test_a_safety_stop_still_counts_as_degradation():
+    assert agent.analyze([run(target=MEMC, stop="safety: 5 consecutive failed probes (limit 5)")], DEP_MAP)["findings"][0]["severity"] == 4
+
+
+def test_a_stopped_run_that_did_not_recover_is_still_a_finding():
+    f = agent.analyze([operator_stopped(recovered=False, recovery_s=None)], DEP_MAP)["findings"][0]
+    assert f["severity"] == 1  # the fault was not restored: that is evidence even with no probes

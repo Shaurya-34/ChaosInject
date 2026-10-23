@@ -116,7 +116,8 @@ def _classify(run: Mapping[str, Any], critical_path: bool, cfg: MonitorConfig) -
         return 3, f"{round(err * 100)}% of probes failed during the fault (not a critical path)", NON_CRITICAL_OUTAGE_LABEL
     if base and fault_p95 and fault_p95 / base >= cfg.amplification_ratio and fault_p95 - base >= cfg.amplification_min_ms:
         return 3, f"p95 latency rose from {base:g} ms to {fault_p95:g} ms ({fault_p95 / base:.1f}x)", SEVERITY_LABELS[3]
-    safety = str(run.get("stop_reason") or "").startswith(("safety", "kill switch", "hard timeout"))
+    # An operator pressing Stop ("kill switch") is a choice, not evidence about the system; the score agrees (uncapped).
+    safety = str(run.get("stop_reason") or "").startswith(("safety", "hard timeout"))
     slowed = bool(base and fault_p95 and fault_p95 / base >= cfg.degraded_ratio)
     if (err or 0) > 0 or slowed or safety:
         return 4, "the system degraded during the fault but recovered", SEVERITY_LABELS[4]
@@ -172,6 +173,9 @@ def analyze(
         target, fault = exp.get("target"), exp.get("fault")
         if not target or not fault or run.get("refused"):
             skipped += 1
+            continue
+        if _error_rate(run, "during") is None and run.get("recovered") is not False:
+            skipped += 1  # stopped before any fault-phase probe (e.g. an operator Stop): nothing was learned
             continue
         node = node_for_target(target) or target
         verdict = _classify(run, CORE_PATH in affected_endpoints(dep_map, node), cfg)
