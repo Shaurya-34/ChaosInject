@@ -58,11 +58,17 @@ recovering are refused. `python scripts/dev.py status` shows what's running and 
 
 Open **Chaos runs**. A "Getting started" panel appears on a fresh clone and says what's missing.
 
+![The resilience score and the experiments you can run](docs/img/dashboard.png)
+
 - **Experiments:** run one, or press the Emergency STOP.
 - **Runs:** every saved run; open one for the probe timeline and the Prometheus charts.
 - **Resilience score:** one 0 to 100 number with its coverage, traceable to run ids.
 - **Findings:** ranked weaknesses, each marked open, improved since or fixed since, with a downloadable report.
 - **Suggested next experiments:** the injection agent's proposals. It only proposes; a person starts every run.
+
+A run's detail: the probe timeline with the fault window shaded, why it stopped, and the Prometheus view of the same minute.
+
+![A run that ended on the safety stop, then recovered](docs/img/run-detail.png)
 
 The two agents are rule-based. An optional LLM (Groq, or a local Ollama) can reword their explanation
 text; it can't change a ranking, a score or a number. See [docs/llm.md](docs/llm.md).
@@ -108,6 +114,14 @@ Each file in [`experiments/`](experiments/) is one bounded fault, 20 to 30 secon
 
 `review` has the same crash pattern but isn't patched: its `/review` route is already broken in this
 deployment, so a fix couldn't be tested.
+
+The findings as the dashboard shows them, ranked, each citing its runs:
+
+![Ranked findings, with the cache crashes marked improved or fixed since](docs/img/findings.png)
+
+And what the injection agent proposes next, ranked by how much depends on the target and what has never been tested:
+
+![Suggested next experiments](docs/img/next-experiments.png)
 
 ## Safety
 
