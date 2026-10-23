@@ -4,15 +4,17 @@ Copyright 2026 ChaosInject contributors
 This repository combines two projects:
 
 1. Shaurya-34/Hackathon (https://github.com/Shaurya-34/Hackathon), MIT, see LICENSE:
-   chaos/, sandbox/, experiments/, docs/ (except docs/ai-chaos-pilot/), tests/test_*.py at the top level.
+   chaos/, sandbox/, experiments/, docs/, tests/test_*.py at the top level.
 
 2. ssaaach/AI-Chaos-Pilot (https://github.com/ssaaach/AI-Chaos-Pilot), Apache-2.0, see LICENSE-APACHE,
    imported at commit 9d0a0734df14fbbf9c7182366a0d0bce59e09839.
    Authors: Sachin Bhat (ssaaach), Gautham Poornachandran (Gauthamop), Navya (Navya1801),
    Thoshitha Kolisetty, and the Bosch Resilience AI team.
-   Paths: backend/, contracts/, frontend/, fixtures/, scripts/, .github/, docs/ai-chaos-pilot/,
+   Paths: backend/, contracts/, frontend/, fixtures/, scripts/, .github/,
    tests/contracts/, tests/integration/, tests/intelligence/, tests/conftest.py,
    tests/test_demo_runtime_*.py, pyproject.toml, requirements.txt, requirements.lock.
+   (Its original docs, docs/ai-chaos-pilot/, and the demo scripts and platform package have since been removed
+   and remain in the git history.)
 
    (The telemetry package by Navya, backend/app/telemetry/, scripts/telemetry/ and tests/telemetry/, was part of this
    import and has since been removed because ChaosInject does not use it. It remains in the git history.)
