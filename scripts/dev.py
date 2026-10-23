@@ -217,7 +217,18 @@ def check_llm(model, base_url, api_key="", opener=urllib.request.urlopen):
     return location
 
 
+def python_problem(version=sys.version_info):
+    """Why this Python cannot install requirements.lock, or None. pydantic-core is pinned and has no 3.14 build yet."""
+    if (3, 11) <= tuple(version[:2]) < (3, 14):
+        return None
+    return (f"Python {version[0]}.{version[1]} is not supported: use 3.11 to 3.13 (CI runs 3.12). If you have several, "
+            "run this with one of them, for example `py -3.12 scripts/dev.py setup` on Windows or `python3.12 scripts/dev.py setup`.")
+
+
 def setup(_):
+    problem = python_problem()
+    if problem and not VENV_PY.exists():  # an existing venv was built by whatever Python made it
+        raise SystemExit(problem)
     if not VENV_PY.exists():
         run(sys.executable, "-m", "venv", ROOT / ".venv")
     run(VENV_PY, "-m", "pip", "install", "-r", ROOT / "requirements.lock")
