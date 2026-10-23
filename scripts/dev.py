@@ -21,6 +21,7 @@ import os
 import platform
 import re
 import secrets
+import shutil
 import signal
 import socket
 import subprocess
@@ -217,10 +218,29 @@ def check_llm(model, base_url, api_key="", opener=urllib.request.urlopen):
     return location
 
 
+def python_problem(version=sys.version_info):
+    """Why this Python cannot install requirements.lock, or None. pydantic-core is pinned and has no 3.14 build yet."""
+    if (3, 11) <= tuple(version[:2]) < (3, 14):
+        return None
+    return (f"Python {version[0]}.{version[1]} is not supported: use 3.11 to 3.13 (CI runs 3.12). If you have several, "
+            "run this with one of them, for example `py -3.12 scripts/dev.py setup` on Windows or `python3.12 scripts/dev.py setup`.")
+
+
 def setup(_):
-    if not VENV_PY.exists():
-        run(sys.executable, "-m", "venv", ROOT / ".venv")
-    run(VENV_PY, "-m", "pip", "install", "-r", ROOT / "requirements.lock")
+    problem = python_problem()
+    if problem and not VENV_PY.exists():  # an existing venv was built by whatever Python made it
+        raise SystemExit(problem)
+    made = not VENV_PY.exists()
+    try:
+        if made:
+            run(sys.executable, "-m", "venv", ROOT / ".venv")
+        run(VENV_PY, "-m", "pip", "install", "-r", ROOT / "requirements.lock")
+    except subprocess.CalledProcessError as error:
+        if made:  # a half-made venv would be reused by the next try, whichever Python that uses
+            shutil.rmtree(ROOT / ".venv", ignore_errors=True)
+        raise SystemExit(f"Could not set up the Python environment ({error.cmd[1:4]} exited {error.returncode}); see the output above. "
+                         "On Debian/Ubuntu `python3 -m venv` needs `sudo apt install python3-venv`. "
+                         + ("The half-made .venv was removed, so the next try starts clean." if made else ""))
     run(VENV_PY, "-m", "pip", "install", "--no-deps", "-e", ROOT)
     run(NPM, "ci", cwd=ROOT / "frontend")
     run(NPM, "run", "build", cwd=ROOT / "frontend")
