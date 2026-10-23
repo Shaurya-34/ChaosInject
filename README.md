@@ -29,7 +29,7 @@ always restores the fault, and ranks the weaknesses it found.
 
 ## Quickstart
 
-**Needs:** Git, Python 3.10+, Node.js 22+, and Docker Desktop/Engine (Linux containers, Compose
+**Needs:** Git, Python 3.11 to 3.13 (CI runs 3.12; 3.14 does not work yet), Node.js 22+, and Docker Desktop/Engine (Linux containers, Compose
 v2.29.7+; on Windows Home, Docker Desktop with the WSL 2 backend). Ports 5000, 8000, 8500, 9090, 9091
 and 16686 on 127.0.0.1. The app images are amd64; on Apple Silicon enable amd64 emulation. The first
 `up` pulls about 8 GB of images (layers are shared, so less on disk), builds two services from source
