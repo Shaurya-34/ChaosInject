@@ -175,7 +175,7 @@ async function warmColours(page:Page):Promise<string[]>{
       if(d===0)return false;
       const s=l>0.5?d/(2-max-min):d/(max+min);
       let h=max===R?((G-B)/d)%6:max===G?(B-R)/d+2:(R-G)/d+4;h=(h*60+360)%360;
-      return s>0.12&&(h<65||h>=320);
+      return s>0.12&&(h<45||h>=320);
     };
     const props=['color','backgroundColor','borderTopColor','borderRightColor','borderBottomColor','borderLeftColor','outlineColor','fill','stroke'];
     const bad=new Set<string>();

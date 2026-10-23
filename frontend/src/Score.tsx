@@ -3,10 +3,10 @@ import {chaos,type Score} from './chaosApi';
 
 /** Cold colours only: teal for good, blue for middling, violet for poor. */
 export function scoreTone(score:number|null):string{
-  if(score===null)return '#587179';
-  if(score>=80)return '#0b8178';
-  if(score>=50)return '#1864ab';
-  return '#5f3dc4';
+  if(score===null)return '#a3a1b8';
+  if(score>=80)return '#ffe14a';
+  if(score>=50)return '#a58bff';
+  return '#7c5cff';
 }
 const fmt=(x:number|null|undefined)=>x==null?'n/a':`${x}`;
 
