@@ -18,6 +18,7 @@ argument and never written to disk, logs or output; it goes only into the API pr
 import argparse
 import json
 import os
+import platform
 import re
 import secrets
 import signal
@@ -48,6 +49,39 @@ HOTELS_URL = "http://127.0.0.1:5000/hotels?inDate=2015-04-09&outDate=2015-04-10&
 def run(*args, cwd=ROOT):
     print("+", " ".join(str(a) for a in args), flush=True)
     subprocess.run([str(a) for a in args], cwd=cwd, check=True)
+
+
+DOCKER_INSTALL = {
+    "Windows": "Install Docker Desktop (https://www.docker.com/products/docker-desktop/) with the WSL 2 backend "
+               "(required on Windows Home), start it, then run this again.",
+    "Darwin": "Install Docker Desktop (https://www.docker.com/products/docker-desktop/), start it, then run this again. "
+              "On Apple Silicon turn on amd64 emulation.",
+    "Linux": "Install Docker Engine and the Compose plugin (https://docs.docker.com/engine/install/), then run this again.",
+}
+DOCKER_START = {
+    "Windows": "Start Docker Desktop and wait until it says the engine is running, then run this again. Docker Desktop "
+               "needs the WSL 2 backend (required on Windows Home): turn it on in Docker Desktop's settings, and if WSL "
+               "is missing run `wsl --install` in an administrator PowerShell and restart.",
+    "Darwin": "Start Docker Desktop and wait until it says the engine is running, then run this again.",
+    "Linux": "Start the daemon (`sudo systemctl start docker`) and make sure your user can reach it "
+             "(`docker info` must work), then run this again.",
+}
+
+
+def docker_problem(run=subprocess.run, system=None):
+    """Why Docker cannot be used, in words that say what to do. None when the engine answers."""
+    system = system if system in DOCKER_INSTALL else (platform.system() if platform.system() in DOCKER_INSTALL else "Linux")
+    try:
+        result = run(["docker", "info"], capture_output=True, text=True, timeout=20)
+    except FileNotFoundError:
+        return "Docker is not installed (there is no `docker` command). " + DOCKER_INSTALL[system]
+    except subprocess.TimeoutExpired:
+        return "Docker did not answer within 20 seconds; its engine may still be starting. Wait a minute, then run this again."
+    if result.returncode == 0:
+        return None
+    said = next((line.strip() for line in (result.stderr or "").splitlines() if line.strip()), "")
+    return ("Docker is installed but its engine is not running, or not reachable. " + DOCKER_START[system]
+            + (f" Docker said: {said[:300]}" if said else ""))
 
 
 def compose(file, *args, capture=False):
@@ -234,8 +268,9 @@ def up(args):
               + ("" if location == "local" else " Run summaries (ids, targets, numbers) are sent there when you open Findings or Suggested experiments."))
     if not VENV_PY.exists() or not (ROOT / "frontend/dist/index.html").exists():
         raise SystemExit("Run `python scripts/dev.py setup` first")
-    if subprocess.run(["docker", "info"], capture_output=True).returncode:
-        raise SystemExit("Docker is not running")
+    problem = docker_problem()
+    if problem:
+        raise SystemExit(problem)
     if not HOTEL.exists():
         run(sys.executable, ROOT / "sandbox/hotel/prepare.py")
     compose(HOTEL, "pull", "--ignore-buildable", "--quiet")
@@ -270,6 +305,10 @@ def down(args):
         raise SystemExit(f"A chaos run is in progress (pid {run_lock['pid']}); stop it from the dashboard "
                          "and let it restore, or pass --force")
     stop_api()
+    problem = docker_problem()
+    if problem:  # nothing to stop in Docker if there is no engine; say so instead of a traceback
+        print("Dashboard stopped. The sandbox containers were not touched because Docker is not available.\n" + problem)
+        return
     compose(OBS, "down")
     if HOTEL.exists():
         compose(HOTEL, "down")
@@ -290,8 +329,13 @@ def llm_label(base_url):
 
 
 def status(_):
-    print(stack("hotel sandbox", HOTEL))
-    print(stack("observability", OBS))
+    problem = docker_problem()
+    if problem:  # without an engine the container counts would be misleading ("0/0 running")
+        print("docker: not available. " + problem.split(". ")[0].rstrip(".") + ". Run `python scripts/dev.py up` for what to do.")
+        print("sandbox containers: unknown")
+    else:
+        print(stack("hotel sandbox", HOTEL))
+        print(stack("observability", OBS))
     print("Prometheus:", "ready  http://127.0.0.1:9090" if http_ok("http://127.0.0.1:9090/-/ready") else "down")
     state = api_state()
     if state:
