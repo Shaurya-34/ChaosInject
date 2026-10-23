@@ -1,3 +1,7 @@
-# Add actual teammate GitHub handles before enforcing owner review.
-# Ownership: platform/infrastructure Ananya; runtime Tooshita; telemetry Navya;
-# intelligence Gautam; contracts/api/frontend/integration Sachin.
+# Who to ask for a review (see CLAUDE.md, Ownership). Review is not enforced: `main` only requires CI.
+* @Shaurya-34
+/chaos/ @Shaurya-34
+/sandbox/ @Shaurya-34
+/experiments/ @Shaurya-34
+/backend/app/intelligence/ @Gauthamop
+/frontend/ @Gauthamop
