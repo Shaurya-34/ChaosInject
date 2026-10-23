@@ -143,6 +143,16 @@ working booking flow. See the known source/configuration caveats in
 review/attractions discovery mismatch. This deployment does not silently patch
 the pulled application binaries.
 
+**GitHub Codespaces (and other nested Docker):** the Go services exit after 30 s with
+`server selection timeout ... dial tcp 172.x.x.x:27017: i/o timeout` while MongoDB itself is healthy, and
+`dev.py up` ends with "hotel frontend did not become ready". Traffic between containers on a bridge network is
+dropped (it fails for two plain `busybox` containers too), because `br_netfilter` sends bridged traffic through
+iptables rules that do not accept it. Fix it on the codespace, then run `dev.py down` and `up` again:
+
+```bash
+sudo sysctl -w net.bridge.bridge-nf-call-iptables=0 net.bridge.bridge-nf-call-ip6tables=0
+```
+
 ## Validation status
 
 The configuration was generated from the pinned upstream Compose file and
