@@ -29,8 +29,11 @@ always restores the fault, and ranks the weaknesses it found.
 ## Quickstart
 
 **Needs:** Git, Python 3.10+, Node.js 22+, and Docker Desktop/Engine (Linux containers, Compose
-v2.29.7+). Ports 5000, 8000, 8500, 9090, 9091 and 16686 on 127.0.0.1. The app images are amd64; on
-Apple Silicon enable amd64 emulation. Use `python3` instead of `python` on Linux/macOS.
+v2.29.7+; on Windows Home, Docker Desktop with the WSL 2 backend). Ports 5000, 8000, 8500, 9090, 9091
+and 16686 on 127.0.0.1. The app images are amd64; on Apple Silicon enable amd64 emulation. The first
+`up` pulls about 8 GB of images (layers are shared, so less on disk), builds two services from source
+(2 to 5 GB of build cache) and creates 2.6 GB of data volumes: keep roughly 12 to 15 GB free. Use
+`python3` instead of `python` on Linux/macOS.
 
 ```bash
 git clone https://github.com/Shaurya-34/ChaosInject.git
