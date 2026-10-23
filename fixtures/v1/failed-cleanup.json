@@ -133,10 +133,10 @@
     "recovery": null,
     "safety": null,
     "total": null,
-    "configuration": "Awaiting Navya's deterministic scoring module: 0.40A + 0.20L + 0.25R + 0.15S",
+    "configuration": "Not scored in this fixture. The real resilience score is computed from saved runs (docs/resilience-score.md)",
     "missing": [
       "Live measurement and scoring adapter not integrated"
     ]
   },
-  "evidence_hash": "66fca8da545b823f8fbb3bcefb7b7641e6334f9722777368704afad3f965ee81"
+  "evidence_hash": "429c9ff964431ecb87817968223b8fe4caf8c43c46a124fea205632f09fb61b6"
 }

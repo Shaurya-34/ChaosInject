@@ -15,8 +15,8 @@ Derived by reading the vendored upstream source in this repository, not guessed:
   logged (soft).
 * ``cartservice`` stores carts in ``redis-cart``, so every cart call depends on it.
 
-Operation names follow Navya's workload (``telemetry/workload.py``). ``cart`` is
-the single operation used by the shared synthetic fixtures. Re-verify this map
+Operation names come from the original Online Boutique workload (browse, product_view, add_to_cart,
+cart_read, checkout). ``cart`` is the single operation used by the shared synthetic fixtures. Re-verify this map
 whenever the pinned upstream revision changes.
 """
 
