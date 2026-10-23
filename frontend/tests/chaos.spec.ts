@@ -416,6 +416,8 @@ test('with data on screen (partial score chip, a selected run, charts) the whole
   await expect(page.getByRole('button',{name:/Resilience score: 65.2/})).toBeVisible();
   await useWideFonts(page);
   expect(await sticksOut(page)).toEqual([]);
+  const stopBox=await page.getByRole('button',{name:'Emergency STOP'}).boundingBox();
+  expect(stopBox!.x+stopBox!.width).toBeLessThanOrEqual(390);
 });
 
 test('the environment status refreshes, so starting the sandbox clears its item',async({page})=>{
@@ -427,4 +429,92 @@ test('the environment status refreshes, so starting the sandbox clears its item'
   await expect(checklist(page).locator('[data-item="sandbox"]')).toBeVisible();
   reachable=true;
   await expect(checklist(page)).toHaveCount(0,{timeout:15000});
+});
+
+// ---- G7: the dashboard shows only the product flow ------------------------------------------------------------
+
+const legacyCall=/\/api\/v1\/(health|topology|state|learning|experiments\/(catalog|plan|validate)|demo\/|emergency-stop|safety\/|actions)/;
+
+async function connectOnly(page:Page){
+  await page.goto('/');await page.getByLabel('Operator token').fill(token);await page.getByRole('button',{name:'Connect workspace'}).click();
+}
+
+test('the sidebar offers only Chaos runs and it is the first page after connecting',async({page})=>{
+  await mockChaos(page,idle);await connectOnly(page);
+  await expect(page.getByRole('heading',{name:'Chaos runs',level:1})).toBeVisible();
+  await expect(page.locator('nav button')).toHaveCount(1);
+  await expect(page.locator('nav button')).toHaveText('Chaos runs');
+  for(const old of ['System overview','Operations','Findings'])await expect(page.getByRole('button',{name:old,exact:true})).toHaveCount(0);
+  await expect(page.getByText('Bounded fault catalog')).toHaveCount(0);
+  await expect(page.getByText('Check an outage duration')).toHaveCount(0);
+});
+
+test('real results never read as fixture or synthetic: no chip, no provenance bar, no wording',async({page})=>{
+  await mockChaos(page,idle);await connectOnly(page);
+  await expect(page.getByRole('row',{name:/hotel_geo_stop/})).toBeVisible();
+  await page.getByRole('row',{name:/hotel_geo_stop/}).click();
+  await expect(page.getByLabel('Run detail')).toBeVisible();
+  const text=await page.locator('body').innerText();
+  expect(text).not.toMatch(/fixture|synthetic/i);
+  expect(text).not.toMatch(/\bOFFLINE\b|LOCAL DEMO|PROVENANCE|GUARD ACTIVE|Pre-execution guard/);
+  await expect(page.locator('.source')).toHaveCount(0);
+  await expect(page.locator('.provenance')).toHaveCount(0);
+  await expect(page.getByText('Runs from your results/ folder.')).toBeVisible();
+  await expect(page.locator('header .context')).toContainText('Local sandbox');
+});
+
+test('connecting and browsing never read the hackathon endpoints',async({page})=>{
+  const calls:string[]=[];
+  page.on('request',r=>{if(legacyCall.test(r.url()))calls.push(r.method()+' '+r.url());});
+  await mockChaos(page,idle);await connectOnly(page);
+  await expect(page.getByRole('row',{name:/hotel_geo_stop/})).toBeVisible();
+  await page.waitForTimeout(2500);  // longer than the old 1 s polling loop
+  expect(calls).toEqual([]);
+});
+
+test('a wrong token is refused and nothing is shown',async({page})=>{
+  await page.route('**/api/v1/chaos/**',route=>route.fulfill({status:401,contentType:'application/json',body:JSON.stringify({code:'UNAUTHORIZED',message:'Authentication is required.'})}));
+  await page.goto('/');await page.getByLabel('Operator token').fill('not-the-token');await page.getByRole('button',{name:'Connect workspace'}).click();
+  await expect(page.getByRole('alert')).toContainText('Authentication is required');
+  await expect(page.getByLabel('Operator token')).toBeVisible();
+  await expect(page.locator('nav button')).toHaveText('Chaos runs');
+});
+
+test('Emergency STOP stays visible and stops the real chaos run, not the old fake runtime',async({page})=>{
+  const seen:string[]=[];
+  page.on('request',r=>{if(/emergency-stop|\/active\/stop/.test(r.url()))seen.push(r.method()+' '+new URL(r.url()).pathname);});
+  await mockChaos(page,idle);
+  await page.route('**/api/v1/chaos/active/stop',route=>route.fulfill({status:202,contentType:'application/json',body:JSON.stringify({stop_requested:true})}));
+  await connectOnly(page);
+  const stop=page.getByRole('button',{name:'Emergency STOP'});
+  await expect(stop).toBeVisible();await expect(stop).toBeEnabled();
+  await stop.click();
+  await expect(page.getByRole('status').filter({hasText:'Stop requested'})).toContainText('restores the fault and verifies recovery');
+  expect(seen).toEqual(['POST /api/v1/chaos/active/stop']);
+});
+
+test('Emergency STOP says so when no run is active or execution is disabled',async({page})=>{
+  await mockChaos(page,idle);
+  let reply={status:409,body:{code:'CONFLICT',message:'Operation refused.'}};
+  await page.route('**/api/v1/chaos/active/stop',route=>route.fulfill({status:reply.status,contentType:'application/json',body:JSON.stringify(reply.body)}));
+  await connectOnly(page);
+  const stop=page.getByRole('button',{name:'Emergency STOP'});
+  await stop.click();
+  await expect(page.getByRole('status').filter({hasText:'No run is active'})).toBeVisible();
+  reply={status:409,body:{code:'MUTATIONS_DISABLED',message:'Operation refused.'}};
+  await stop.click();
+  const note=page.getByRole('status').filter({hasText:'execution disabled'});
+  await expect(note).toContainText('Ctrl+C');await expect(note).toContainText('python -m chaos.controller --recover');
+  await expect(stop).toBeEnabled();  // STOP is always available, even when the answer is "nothing to stop"
+});
+
+test('Emergency STOP is visible before and after connecting, and fits a phone screen',async({page})=>{
+  await mockChaos(page,idle);
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/');
+  const stop=page.getByRole('button',{name:'Emergency STOP'});
+  await expect(stop).toBeVisible();await expect(stop).toBeDisabled();  // nothing to stop until connected
+  await page.getByLabel('Operator token').fill(token);await page.getByRole('button',{name:'Connect workspace'}).click();
+  await expect(stop).toBeEnabled();
+  const box=await stop.boundingBox();expect(box!.x+box!.width).toBeLessThanOrEqual(390);
 });

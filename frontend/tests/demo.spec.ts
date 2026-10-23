@@ -1,40 +1,50 @@
 import {test,expect} from '@playwright/test';
+
+// These run against the disposable demo server from scripts/browser-test-server.py (a real HTTP target plus the API).
+// The hackathon demo page that used to drive this is not part of the product build any more, so the guard is now
+// tested where it lives, over HTTP, and the product shell is tested on the same server.
 const token='browser-test-disposable-token-0000000000';
-test('real HTTP target stays healthy; injection is blocked and popup is shown',async({page,request})=>{
- const before=await request.get('http://127.0.0.1:8290/health');expect(before.ok()).toBeTruthy();expect((await before.json()).status).toBe('healthy');
- await page.goto('/');await page.getByLabel('Operator token').fill(token);await page.getByRole('button',{name:'Connect workspace'}).click();
- await expect(page.getByText('Local prevention demo · real HTTP target')).toBeVisible();
- await expect(page.getByRole('button',{name:'Emergency STOP'})).toBeEnabled();
- const responsePromise=page.waitForResponse(r=>r.url().endsWith('/api/v1/demo/injection'));
- await page.getByRole('button',{name:'Check duration'}).click();const result=await (await responsePromise).json();
- expect(result.rule_id).toBe('DURATION_HARD_LIMIT');expect(result.executed).toBe(false);expect(result.mutations_dispatched).toBe(0);
- const dialog=page.getByRole('alertdialog');await expect(dialog).toBeVisible();await expect(dialog.getByRole('heading',{name:'Error has occurred'})).toBeVisible();await expect(dialog.getByText('Injection blocked before execution.',{exact:true})).toBeVisible();
- const after=await request.get('http://127.0.0.1:8290/health');const target=await after.json();expect(target.status).toBe('healthy');expect(target.mutations_received).toBe(0);
- await page.getByRole('button',{name:'Acknowledge error'}).click();await expect(dialog).not.toBeVisible();
- expect(await page.evaluate(()=>({local:localStorage.length,session:sessionStorage.length}))).toEqual({local:0,session:0});
- await page.getByRole('button',{name:'Findings',exact:true}).click();await expect(page.getByRole('heading',{name:'Duration check evidence'})).toBeVisible();await expect(page.getByText('DURATION_HARD_LIMIT',{exact:true})).toBeVisible();
- await page.reload();await page.getByLabel('Operator token').fill(token);await page.getByRole('button',{name:'Connect workspace'}).click();
- await expect(page.getByText('STOP LATCHED',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Check duration'})).toBeDisabled();
- await page.getByRole('button',{name:'Reset demo after health check'}).click();await expect(page.getByRole('button',{name:'Check duration'})).toBeEnabled();
-});
-test('small-screen layout keeps STOP and demo button reachable',async({page})=>{
- await page.setViewportSize({width:390,height:844});await page.goto('/');await page.getByLabel('Operator token').fill(token);await page.getByRole('button',{name:'Connect workspace'}).click();
- await expect(page.getByRole('button',{name:'Emergency STOP'})).toBeVisible();await expect(page.getByRole('button',{name:'Check duration'})).toBeVisible();
- const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth);expect(overflow).toBe(false);
+const auth={Authorization:'Bearer '+token};
+const TARGET='http://127.0.0.1:8290/health';
+
+async function check(request:import('@playwright/test').APIRequestContext,seconds:number){
+  const response=await request.post('/api/v1/demo/injection',{headers:auth,data:{fault_type:'service_pause',duration_seconds:seconds}});
+  expect(response.ok()).toBeTruthy();
+  return response.json();
+}
+
+test('the demo guard blocks an unsafe duration before anything is changed and the real target stays healthy',async({request})=>{
+  const before=await request.get(TARGET);expect(before.ok()).toBeTruthy();expect((await before.json()).status).toBe('healthy');
+  const result=await check(request,90);
+  expect(result.rule_id).toBe('DURATION_HARD_LIMIT');expect(result.decision).toBe('BLOCK');
+  expect(result.executed).toBe(false);expect(result.mutations_dispatched).toBe(0);
+  const after=await (await request.get(TARGET)).json();
+  expect(after.status).toBe('healthy');expect(after.mutations_received).toBe(0);
+  const safety=await (await request.get('/api/v1/demo/safety',{headers:auth})).json();
+  expect(safety.stop_latched).toBe(true);  // a blocked request latches STOP until it is reset
+  const reset=await request.post('/api/v1/safety/reset',{headers:auth,data:{}});
+  expect(reset.ok()).toBeTruthy();
+  expect((await (await request.get('/api/v1/demo/safety',{headers:auth})).json()).stop_latched).toBe(false);
 });
 
- test('user durations show success at 60 and error at 61 without an outage',async({page,request})=>{
- await page.goto('/');await page.getByLabel('Operator token').fill(token);await page.getByRole('button',{name:'Connect workspace'}).click();
- const duration=page.getByLabel('Outage duration (seconds)');
- const check=page.getByRole('button',{name:'Check duration'});
- for(const seconds of [1,30,60]){
-  await duration.fill(String(seconds));const pending=page.waitForResponse(r=>r.url().endsWith('/api/v1/demo/injection'));await check.click();const result=await (await pending).json();
-  expect(result.duration_seconds).toBe(seconds);expect(result.decision).toBe('ALLOW');expect(result.executed).toBe(false);expect(result.stop_latched).toBe(false);expect(result.mutations_dispatched).toBe(0);
-  await expect(page.getByRole('alertdialog').getByRole('heading',{name:'Safety check passed'})).toBeVisible();await expect(page.getByRole('alertdialog').getByText('Success means validation passed. No outage was executed.',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Continue',exact:true}).click();
- }
- await duration.fill('0');await expect(check).toBeDisabled();await expect(page.getByText('Enter a whole number from 1 to 600.')).toBeVisible();
- await duration.fill('1.5');await expect(check).toBeDisabled();
- await duration.fill('61');await check.click();await expect(page.getByRole('alertdialog').getByRole('heading',{name:'Error has occurred'})).toBeVisible();
- await page.getByRole('button',{name:'Acknowledge error'}).click();await expect(check).toBeDisabled();await page.getByRole('button',{name:'Reset demo after health check'}).click();await expect(check).toBeEnabled();
- const target=await (await request.get('http://127.0.0.1:8290/health')).json();expect(target.status).toBe('healthy');expect(target.mutations_received).toBe(0);
- });
+test('durations up to 60 s pass the guard and 61 s is blocked, without an outage',async({request})=>{
+  for(const seconds of [1,30,60]){
+    const result=await check(request,seconds);
+    expect(result.duration_seconds).toBe(seconds);expect(result.decision).toBe('ALLOW');expect(result.executed).toBe(false);
+    expect(result.stop_latched).toBe(false);expect(result.mutations_dispatched).toBe(0);
+  }
+  const blocked=await check(request,61);
+  expect(blocked.decision).toBe('BLOCK');expect(blocked.stop_latched).toBe(true);
+  const target=await (await request.get(TARGET)).json();
+  expect(target.status).toBe('healthy');expect(target.mutations_received).toBe(0);
+  expect((await request.post('/api/v1/safety/reset',{headers:auth,data:{}})).ok()).toBeTruthy();
+});
+
+test('small-screen layout keeps Emergency STOP reachable and the page does not scroll sideways',async({page})=>{
+  await page.setViewportSize({width:390,height:844});await page.goto('/');
+  await page.getByLabel('Operator token').fill(token);await page.getByRole('button',{name:'Connect workspace'}).click();
+  const stop=page.getByRole('button',{name:'Emergency STOP'});
+  await expect(stop).toBeVisible();await expect(stop).toBeEnabled();
+  const box=await stop.boundingBox();expect(box!.x+box!.width).toBeLessThanOrEqual(390);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth)).toBe(false);
+});
