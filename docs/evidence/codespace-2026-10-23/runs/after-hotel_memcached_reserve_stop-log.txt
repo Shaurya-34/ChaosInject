@@ -1,0 +1,30 @@
+  [baseline] ok   status=200    37.7ms
+  [baseline] ok   status=200     8.6ms
+  [baseline] ok   status=200    11.8ms
+  [baseline] ok   status=200    11.1ms
+  [baseline] ok   status=200     9.1ms
+injecting container_stop into hotel-sandbox-memcached-reserve-1 for up to 20s
+  [fault   ] ok   status=200    15.7ms
+  [fault   ] ok   status=200    16.7ms
+  [fault   ] ok   status=200    25.9ms
+  [fault   ] ok   status=200    17.3ms
+  [fault   ] ok   status=200    13.1ms
+  [fault   ] ok   status=200    12.4ms
+  [fault   ] ok   status=200    20.3ms
+  [fault   ] ok   status=200    15.8ms
+  [fault   ] ok   status=200    12.3ms
+  [fault   ] ok   status=200    13.6ms
+  [fault   ] FAIL status=---  2002.6ms
+  [fault   ] ok   status=200    12.8ms
+  [fault   ] ok   status=200    13.0ms
+  [fault   ] ok   status=200    14.1ms
+  [fault   ] ok   status=200    11.8ms
+  [fault   ] ok   status=200    12.7ms
+  [fault   ] ok   status=200    11.3ms
+  [fault   ] ok   status=200    13.7ms
+restored hotel-sandbox-memcached-reserve-1
+  [recovery] ok   status=200    14.5ms
+stop reason: duration elapsed
+during fault: 1/18 probes failed
+recovered: True in 0.01s
+saved: /workspaces/ChaosInject/results/20261023-142619-hotel-memcached-reserve-stop-defdc1.json

@@ -1,0 +1,232 @@
+{
+  "experiment": {
+    "name": "hotel-memcached-profile-stop",
+    "target": "hotel-sandbox-memcached-profile-1",
+    "fault": "container_stop",
+    "duration_s": 20,
+    "probe_url": "http://127.0.0.1:5000/hotels?inDate=2015-04-09&outDate=2015-04-10&lat=38.0235&lon=-122.095",
+    "baseline_samples": 5,
+    "interval_s": 1
+  },
+  "policy": {
+    "allowed_targets": [
+      "chaos-dummy-web",
+      "hotel-sandbox-memcached-rate-1",
+      "hotel-sandbox-geo-1",
+      "hotel-sandbox-rate-1",
+      "hotel-sandbox-memcached-profile-1",
+      "hotel-sandbox-memcached-reserve-1"
+    ],
+    "allowed_faults": [
+      "container_stop",
+      "network_delay",
+      "packet_loss"
+    ],
+    "max_duration_s": 60,
+    "hard_timeout_s": 120,
+    "recovery_timeout_s": 30,
+    "window_size": 10,
+    "min_samples": 3,
+    "max_error_rate": 0.5,
+    "max_consecutive_failures": 5,
+    "max_latency_ms": 2000,
+    "latency_multiplier": 5.0,
+    "latency_floor_ms": 200
+  },
+  "baseline": [
+    {
+      "t": 1792765522.2658336,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 43.0
+    },
+    {
+      "t": 1792765523.2738638,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 7.9
+    },
+    {
+      "t": 1792765524.2825928,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 8.6
+    },
+    {
+      "t": 1792765525.2897787,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 7.0
+    },
+    {
+      "t": 1792765526.2980108,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 8.1
+    }
+  ],
+  "during": [
+    {
+      "t": 1792765527.7781715,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 11.1
+    },
+    {
+      "t": 1792765528.7922173,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 13.8
+    },
+    {
+      "t": 1792765529.8035057,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 11.0
+    },
+    {
+      "t": 1792765530.8164487,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 12.7
+    },
+    {
+      "t": 1792765531.8273716,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 10.7
+    },
+    {
+      "t": 1792765532.8394132,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 11.7
+    },
+    {
+      "t": 1792765533.8513427,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 11.7
+    },
+    {
+      "t": 1792765534.8621142,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 10.5
+    },
+    {
+      "t": 1792765535.8789506,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 16.5
+    },
+    {
+      "t": 1792765536.8901417,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 10.9
+    },
+    {
+      "t": 1792765537.905013,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 14.6
+    },
+    {
+      "t": 1792765538.9172523,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 11.9
+    },
+    {
+      "t": 1792765539.9273236,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 9.7
+    },
+    {
+      "t": 1792765540.9395213,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 11.9
+    },
+    {
+      "t": 1792765541.949976,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 10.1
+    },
+    {
+      "t": 1792765542.9617674,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 11.5
+    },
+    {
+      "t": 1792765543.971973,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 9.9
+    },
+    {
+      "t": 1792765544.9811478,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 8.9
+    },
+    {
+      "t": 1792765545.9912162,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 9.8
+    },
+    {
+      "t": 1792765547.0021174,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 10.6
+    }
+  ],
+  "recovery": [
+    {
+      "t": 1792765548.2492225,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 10.0
+    }
+  ],
+  "stop_reason": "duration elapsed",
+  "recovered": true,
+  "recovery_s": 0.01,
+  "fault_started": 1792765527.298231,
+  "fault_ended": 1792765548.2391908,
+  "run_id": "20261023-142548-hotel-memcached-profile-stop-3e9f63",
+  "schema_version": 1,
+  "saved_at": 1792765548.249638,
+  "summary": {
+    "baseline": {
+      "count": 5,
+      "failures": 0,
+      "error_rate": 0.0,
+      "p50_ms": 8.1,
+      "p95_ms": 43.0,
+      "max_ms": 43.0
+    },
+    "during": {
+      "count": 20,
+      "failures": 0,
+      "error_rate": 0.0,
+      "p50_ms": 11.0,
+      "p95_ms": 14.6,
+      "max_ms": 16.5
+    },
+    "recovery": {
+      "count": 1,
+      "failures": 0,
+      "error_rate": 0.0,
+      "p50_ms": 10.0,
+      "p95_ms": 10.0,
+      "max_ms": 10.0
+    }
+  }
+}

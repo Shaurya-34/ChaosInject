@@ -1,0 +1,19 @@
+  [baseline] ok   status=200    34.7ms
+  [baseline] ok   status=200     6.5ms
+  [baseline] ok   status=200     7.0ms
+  [baseline] ok   status=200     5.5ms
+  [baseline] ok   status=200     5.8ms
+injecting container_stop into hotel-sandbox-geo-1 for up to 20s
+  [fault   ] FAIL status=500     1.6ms
+  [fault   ] FAIL status=500     2.0ms
+  [fault   ] FAIL status=500     1.6ms
+  [fault   ] FAIL status=500     1.7ms
+  [fault   ] FAIL status=500     1.7ms
+SAFETY STOP: 5 consecutive failed probes (limit 5)
+restored hotel-sandbox-geo-1
+  [recovery] FAIL status=500     2.5ms
+  [recovery] ok   status=200     5.7ms
+stop reason: safety: 5 consecutive failed probes (limit 5)
+during fault: 5/5 probes failed
+recovered: True in 1.01s
+saved: /workspaces/ChaosInject/results/20261023-141832-hotel-geo-stop-091076.json

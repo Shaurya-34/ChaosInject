@@ -1,0 +1,132 @@
+{
+  "experiment": {
+    "name": "hotel-rate-delay",
+    "target": "hotel-sandbox-rate-1",
+    "fault": "network_delay",
+    "delay_ms": 200,
+    "jitter_ms": 20,
+    "duration_s": 20,
+    "probe_url": "http://127.0.0.1:5000/hotels?inDate=2015-04-09&outDate=2015-04-10&lat=38.0235&lon=-122.095",
+    "baseline_samples": 5,
+    "interval_s": 1
+  },
+  "policy": {
+    "allowed_targets": [
+      "chaos-dummy-web",
+      "hotel-sandbox-memcached-rate-1",
+      "hotel-sandbox-geo-1",
+      "hotel-sandbox-rate-1",
+      "hotel-sandbox-memcached-profile-1",
+      "hotel-sandbox-memcached-reserve-1"
+    ],
+    "allowed_faults": [
+      "container_stop",
+      "network_delay",
+      "packet_loss"
+    ],
+    "max_duration_s": 60,
+    "hard_timeout_s": 120,
+    "recovery_timeout_s": 30,
+    "window_size": 10,
+    "min_samples": 3,
+    "max_error_rate": 0.5,
+    "max_consecutive_failures": 5,
+    "max_latency_ms": 2000,
+    "latency_multiplier": 5.0,
+    "latency_floor_ms": 200
+  },
+  "baseline": [
+    {
+      "t": 1792765117.2321208,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 34.0
+    },
+    {
+      "t": 1792765118.2374394,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 5.1
+    },
+    {
+      "t": 1792765119.2455525,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 7.3
+    },
+    {
+      "t": 1792765120.2508082,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 5.0
+    },
+    {
+      "t": 1792765121.2568526,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 5.9
+    }
+  ],
+  "during": [
+    {
+      "t": 1792765137.8670256,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 593.6
+    },
+    {
+      "t": 1792765140.0715365,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 1204.3
+    },
+    {
+      "t": 1792765141.9672935,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 895.5
+    }
+  ],
+  "recovery": [
+    {
+      "t": 1792765143.7448254,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 5.3
+    }
+  ],
+  "stop_reason": "safety: p95 latency 1204ms > 200ms over last 3 probes, baseline p95 34ms",
+  "recovered": true,
+  "recovery_s": 0.01,
+  "fault_started": 1792765122.2570953,
+  "fault_ended": 1792765143.7394447,
+  "run_id": "20261023-141903-hotel-rate-delay-a878b0",
+  "schema_version": 1,
+  "saved_at": 1792765143.7451527,
+  "summary": {
+    "baseline": {
+      "count": 5,
+      "failures": 0,
+      "error_rate": 0.0,
+      "p50_ms": 5.9,
+      "p95_ms": 34.0,
+      "max_ms": 34.0
+    },
+    "during": {
+      "count": 3,
+      "failures": 0,
+      "error_rate": 0.0,
+      "p50_ms": 895.5,
+      "p95_ms": 1204.3,
+      "max_ms": 1204.3
+    },
+    "recovery": {
+      "count": 1,
+      "failures": 0,
+      "error_rate": 0.0,
+      "p50_ms": 5.3,
+      "p95_ms": 5.3,
+      "max_ms": 5.3
+    }
+  }
+}

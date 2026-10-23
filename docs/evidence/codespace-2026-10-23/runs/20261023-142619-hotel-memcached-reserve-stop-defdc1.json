@@ -1,0 +1,220 @@
+{
+  "experiment": {
+    "name": "hotel-memcached-reserve-stop",
+    "target": "hotel-sandbox-memcached-reserve-1",
+    "fault": "container_stop",
+    "duration_s": 20,
+    "probe_url": "http://127.0.0.1:5000/hotels?inDate=2015-04-09&outDate=2015-04-10&lat=38.0235&lon=-122.095",
+    "baseline_samples": 5,
+    "interval_s": 1
+  },
+  "policy": {
+    "allowed_targets": [
+      "chaos-dummy-web",
+      "hotel-sandbox-memcached-rate-1",
+      "hotel-sandbox-geo-1",
+      "hotel-sandbox-rate-1",
+      "hotel-sandbox-memcached-profile-1",
+      "hotel-sandbox-memcached-reserve-1"
+    ],
+    "allowed_faults": [
+      "container_stop",
+      "network_delay",
+      "packet_loss"
+    ],
+    "max_duration_s": 60,
+    "hard_timeout_s": 120,
+    "recovery_timeout_s": 30,
+    "window_size": 10,
+    "min_samples": 3,
+    "max_error_rate": 0.5,
+    "max_consecutive_failures": 5,
+    "max_latency_ms": 2000,
+    "latency_multiplier": 5.0,
+    "latency_floor_ms": 200
+  },
+  "baseline": [
+    {
+      "t": 1792765552.464445,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 37.7
+    },
+    {
+      "t": 1792765553.473231,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 8.6
+    },
+    {
+      "t": 1792765554.4852207,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 11.8
+    },
+    {
+      "t": 1792765555.4965131,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 11.1
+    },
+    {
+      "t": 1792765556.5058377,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 9.1
+    }
+  ],
+  "during": [
+    {
+      "t": 1792765558.602199,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 15.7
+    },
+    {
+      "t": 1792765559.619152,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 16.7
+    },
+    {
+      "t": 1792765560.645356,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 25.9
+    },
+    {
+      "t": 1792765561.6630387,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 17.3
+    },
+    {
+      "t": 1792765562.676576,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 13.1
+    },
+    {
+      "t": 1792765563.689196,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 12.4
+    },
+    {
+      "t": 1792765564.7098453,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 20.3
+    },
+    {
+      "t": 1792765565.7259738,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 15.8
+    },
+    {
+      "t": 1792765566.738583,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 12.3
+    },
+    {
+      "t": 1792765567.7524517,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 13.6
+    },
+    {
+      "t": 1792765570.755308,
+      "ok": false,
+      "status": null,
+      "latency_ms": 2002.6
+    },
+    {
+      "t": 1792765571.7684333,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 12.8
+    },
+    {
+      "t": 1792765572.78173,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 13.0
+    },
+    {
+      "t": 1792765573.796186,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 14.1
+    },
+    {
+      "t": 1792765574.808328,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 11.8
+    },
+    {
+      "t": 1792765575.8213038,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 12.7
+    },
+    {
+      "t": 1792765576.8328817,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 11.3
+    },
+    {
+      "t": 1792765577.8468468,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 13.7
+    }
+  ],
+  "recovery": [
+    {
+      "t": 1792765579.083075,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 14.5
+    }
+  ],
+  "stop_reason": "duration elapsed",
+  "recovered": true,
+  "recovery_s": 0.01,
+  "fault_started": 1792765557.5061097,
+  "fault_ended": 1792765579.0684998,
+  "run_id": "20261023-142619-hotel-memcached-reserve-stop-defdc1",
+  "schema_version": 1,
+  "saved_at": 1792765579.0834496,
+  "summary": {
+    "baseline": {
+      "count": 5,
+      "failures": 0,
+      "error_rate": 0.0,
+      "p50_ms": 11.1,
+      "p95_ms": 37.7,
+      "max_ms": 37.7
+    },
+    "during": {
+      "count": 18,
+      "failures": 1,
+      "error_rate": 0.0556,
+      "p50_ms": 13.6,
+      "p95_ms": 25.9,
+      "max_ms": 25.9
+    },
+    "recovery": {
+      "count": 1,
+      "failures": 0,
+      "error_rate": 0.0,
+      "p50_ms": 14.5,
+      "p95_ms": 14.5,
+      "max_ms": 14.5
+    }
+  }
+}

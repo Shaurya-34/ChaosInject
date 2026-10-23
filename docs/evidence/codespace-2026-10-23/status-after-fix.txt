@@ -1,0 +1,8 @@
+hotel sandbox: 24/24 containers running
+observability: 4/4 containers running
+Prometheus: ready  http://127.0.0.1:9090
+dashboard: http://127.0.0.1:8000
+operator token: <redacted>
+execution: ENABLED (real faults on the sandbox)
+explanations: rule-based (start with `up --llm MODEL` for model-written text)
+active run: none

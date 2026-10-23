@@ -1,0 +1,40 @@
+  [fault   ] FAIL status=500     2.3ms
+  [fault   ] FAIL status=500     2.2ms
+  [fault   ] FAIL status=500     2.2ms
+  [fault   ] FAIL status=500     2.0ms
+SAFETY STOP: 5 consecutive failed probes (limit 5)
+restored hotel-sandbox-memcached-rate-1
+  [recovery] FAIL status=500     2.0ms
+  [recovery] FAIL status=500     2.2ms
+  [recovery] FAIL status=500     2.1ms
+  [recovery] FAIL status=500     2.1ms
+  [recovery] FAIL status=500     2.0ms
+  [recovery] FAIL status=500     2.7ms
+  [recovery] FAIL status=500     2.3ms
+  [recovery] FAIL status=500     2.0ms
+  [recovery] FAIL status=500     2.2ms
+  [recovery] FAIL status=500     3.7ms
+  [recovery] FAIL status=500     2.0ms
+  [recovery] FAIL status=500     2.0ms
+  [recovery] FAIL status=500     2.1ms
+  [recovery] FAIL status=500     2.1ms
+  [recovery] FAIL status=500     2.5ms
+  [recovery] FAIL status=500     2.0ms
+  [recovery] FAIL status=500     2.0ms
+  [recovery] FAIL status=500     2.1ms
+  [recovery] FAIL status=500     2.1ms
+  [recovery] FAIL status=500     2.0ms
+  [recovery] FAIL status=500     2.1ms
+  [recovery] FAIL status=500     2.1ms
+  [recovery] FAIL status=500     2.0ms
+  [recovery] FAIL status=500     2.4ms
+  [recovery] FAIL status=500     2.2ms
+  [recovery] FAIL status=500     2.1ms
+  [recovery] FAIL status=500     7.8ms
+  [recovery] FAIL status=500     2.9ms
+  [recovery] FAIL status=500     3.1ms
+  [recovery] FAIL status=500     5.6ms
+stop reason: safety: 5 consecutive failed probes (limit 5)
+during fault: 5/5 probes failed
+recovered: False in Nones
+saved: /workspaces/ChaosInject/results/20261023-141946-hotel-memcached-rate-stop-5a537a.json

@@ -1,0 +1,1 @@
+{"sandbox":{"url":"http://127.0.0.1:5000/hotels?inDate=2015-04-09&outDate=2015-04-10&lat=38.0235&lon=-122.095","reachable":true,"status":500},"prometheus":{"reachable":true,"status":200},"runs_saved":3,"checked_at":1792765192.7130973,"execution_enabled":true}

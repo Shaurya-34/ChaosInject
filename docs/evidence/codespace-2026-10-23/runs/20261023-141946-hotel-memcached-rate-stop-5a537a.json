@@ -1,0 +1,316 @@
+{
+  "experiment": {
+    "name": "hotel-memcached-rate-stop",
+    "target": "hotel-sandbox-memcached-rate-1",
+    "fault": "container_stop",
+    "duration_s": 20,
+    "probe_url": "http://127.0.0.1:5000/hotels?inDate=2015-04-09&outDate=2015-04-10&lat=38.0235&lon=-122.095",
+    "baseline_samples": 5,
+    "interval_s": 1
+  },
+  "policy": {
+    "allowed_targets": [
+      "chaos-dummy-web",
+      "hotel-sandbox-memcached-rate-1",
+      "hotel-sandbox-geo-1",
+      "hotel-sandbox-rate-1",
+      "hotel-sandbox-memcached-profile-1",
+      "hotel-sandbox-memcached-reserve-1"
+    ],
+    "allowed_faults": [
+      "container_stop",
+      "network_delay",
+      "packet_loss"
+    ],
+    "max_duration_s": 60,
+    "hard_timeout_s": 120,
+    "recovery_timeout_s": 30,
+    "window_size": 10,
+    "min_samples": 3,
+    "max_error_rate": 0.5,
+    "max_consecutive_failures": 5,
+    "max_latency_ms": 2000,
+    "latency_multiplier": 5.0,
+    "latency_floor_ms": 200
+  },
+  "baseline": [
+    {
+      "t": 1792765147.4624302,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 33.8
+    },
+    {
+      "t": 1792765148.46776,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 5.2
+    },
+    {
+      "t": 1792765149.473148,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 5.2
+    },
+    {
+      "t": 1792765150.4792051,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 5.9
+    },
+    {
+      "t": 1792765151.4858181,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 6.4
+    }
+  ],
+  "during": [
+    {
+      "t": 1792765152.7048671,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 7.3
+    },
+    {
+      "t": 1792765153.7077193,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.3
+    },
+    {
+      "t": 1792765154.7101421,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.2
+    },
+    {
+      "t": 1792765155.7125704,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.2
+    },
+    {
+      "t": 1792765156.7149055,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.0
+    }
+  ],
+  "recovery": [
+    {
+      "t": 1792765156.9101558,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.0
+    },
+    {
+      "t": 1792765157.9124794,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.2
+    },
+    {
+      "t": 1792765158.9147596,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.1
+    },
+    {
+      "t": 1792765159.9169958,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.1
+    },
+    {
+      "t": 1792765160.9191878,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.0
+    },
+    {
+      "t": 1792765161.9220603,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.7
+    },
+    {
+      "t": 1792765162.92456,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.3
+    },
+    {
+      "t": 1792765163.926761,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.0
+    },
+    {
+      "t": 1792765164.9290757,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.2
+    },
+    {
+      "t": 1792765165.932975,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 3.7
+    },
+    {
+      "t": 1792765166.9350827,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.0
+    },
+    {
+      "t": 1792765167.9371922,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.0
+    },
+    {
+      "t": 1792765168.9394624,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.1
+    },
+    {
+      "t": 1792765169.941681,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.1
+    },
+    {
+      "t": 1792765170.9443164,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.5
+    },
+    {
+      "t": 1792765171.946483,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.0
+    },
+    {
+      "t": 1792765172.9486527,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.0
+    },
+    {
+      "t": 1792765173.9509685,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.1
+    },
+    {
+      "t": 1792765174.953202,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.1
+    },
+    {
+      "t": 1792765175.9554207,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.0
+    },
+    {
+      "t": 1792765176.9577293,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.1
+    },
+    {
+      "t": 1792765177.9600067,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.1
+    },
+    {
+      "t": 1792765178.9621189,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.0
+    },
+    {
+      "t": 1792765179.9647331,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.4
+    },
+    {
+      "t": 1792765180.9671628,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.2
+    },
+    {
+      "t": 1792765181.9693942,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.1
+    },
+    {
+      "t": 1792765182.9773543,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 7.8
+    },
+    {
+      "t": 1792765183.9805646,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.9
+    },
+    {
+      "t": 1792765184.9838946,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 3.1
+    },
+    {
+      "t": 1792765185.99188,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 5.6
+    }
+  ],
+  "stop_reason": "safety: 5 consecutive failed probes (limit 5)",
+  "recovered": false,
+  "recovery_s": null,
+  "fault_started": 1792765152.486058,
+  "fault_ended": 1792765156.908098,
+  "run_id": "20261023-141946-hotel-memcached-rate-stop-5a537a",
+  "schema_version": 1,
+  "saved_at": 1792765186.9924722,
+  "summary": {
+    "baseline": {
+      "count": 5,
+      "failures": 0,
+      "error_rate": 0.0,
+      "p50_ms": 5.9,
+      "p95_ms": 33.8,
+      "max_ms": 33.8
+    },
+    "during": {
+      "count": 5,
+      "failures": 5,
+      "error_rate": 1.0,
+      "p50_ms": null,
+      "p95_ms": null,
+      "max_ms": null
+    },
+    "recovery": {
+      "count": 30,
+      "failures": 30,
+      "error_rate": 1.0,
+      "p50_ms": null,
+      "p95_ms": null,
+      "max_ms": null
+    }
+  }
+}

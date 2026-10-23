@@ -1,0 +1,32 @@
+  [baseline] ok   status=200    49.6ms
+  [baseline] ok   status=200     6.9ms
+  [baseline] ok   status=200     8.4ms
+  [baseline] ok   status=200     9.1ms
+  [baseline] ok   status=200     6.6ms
+injecting container_stop into hotel-sandbox-memcached-rate-1 for up to 20s
+  [fault   ] ok   status=200     9.7ms
+  [fault   ] ok   status=200     8.5ms
+  [fault   ] ok   status=200    11.1ms
+  [fault   ] ok   status=200     8.8ms
+  [fault   ] ok   status=200     8.9ms
+  [fault   ] ok   status=200     9.8ms
+  [fault   ] ok   status=200     7.8ms
+  [fault   ] ok   status=200     7.8ms
+  [fault   ] ok   status=200     8.5ms
+  [fault   ] ok   status=200     8.2ms
+  [fault   ] ok   status=200     8.3ms
+  [fault   ] ok   status=200     7.6ms
+  [fault   ] ok   status=200     7.7ms
+  [fault   ] ok   status=200    10.0ms
+  [fault   ] ok   status=200     9.7ms
+  [fault   ] ok   status=200     7.6ms
+  [fault   ] ok   status=200     8.8ms
+  [fault   ] ok   status=200     8.4ms
+  [fault   ] ok   status=200     7.7ms
+  [fault   ] ok   status=200     7.5ms
+restored hotel-sandbox-memcached-rate-1
+  [recovery] ok   status=200    11.7ms
+stop reason: duration elapsed
+during fault: 0/20 probes failed
+recovered: True in 0.01s
+saved: /workspaces/ChaosInject/results/20261023-142518-hotel-memcached-rate-stop-22bab6.json
