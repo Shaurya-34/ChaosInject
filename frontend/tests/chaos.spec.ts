@@ -166,6 +166,8 @@ test('the header uses ChaosInject branding',async({page})=>{
 
 // Colours: no red, orange, yellow or pink anywhere on the rendered page (HTML and SVG), tints included.
 async function warmColours(page:Page):Promise<string[]>{
+  // A colour read mid-transition (a tab border fading in from the old cream) is not the colour the page settles on.
+  await page.addStyleTag({content:'*,*::before,*::after{transition:none!important;animation:none!important}'});
   return page.evaluate(()=>{
     const warm=(c:string)=>{
       const m=c.match(/rgba?\(([^)]+)\)/);if(!m)return false;
