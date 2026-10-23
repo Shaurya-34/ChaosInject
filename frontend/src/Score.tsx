@@ -1,12 +1,12 @@
 import React,{useEffect,useState} from 'react';
 import {chaos,type Score} from './chaosApi';
 
-/** Cold colours only: teal for good, blue for middling, violet for poor. */
+/** Yellow for good, pale lavender for middling, violet for poor. Yellow is the "act on this" colour of the theme, not a warning. */
 export function scoreTone(score:number|null):string{
   if(score===null)return '#a3a1b8';
   if(score>=80)return '#ffe14a';
-  if(score>=50)return '#a58bff';
-  return '#7c5cff';
+  if(score>=50)return '#cfc9ee';
+  return '#a58bff';
 }
 const fmt=(x:number|null|undefined)=>x==null?'n/a':`${x}`;
 
@@ -38,6 +38,7 @@ export function ScoreCard({score,onOpenRun}:{score:Score|undefined;onOpenRun:(id
         <h2>Resilience score</h2>
         <p className="score-headline">{score.headline}</p>
         <p className="muted">Deterministic, from saved runs only. Formula and weights: <code>docs/resilience-score.md</code>. A run that did not recover scores 0; a run ended by a safety stop is capped at {score.safety_stop_cap}.</p>
+        <p className="muted score-legend">Colour: yellow is good (80 and up), pale lavender is middling (50 to 79), violet is poor (below 50).</p>
       </div>
     </div>
     <div className="score-coverage" aria-label="Coverage">

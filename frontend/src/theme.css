@@ -27,8 +27,8 @@ button:disabled{opacity:.38}
 button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 @media(hover:hover) and (pointer:fine){.primary:hover:not(:disabled){background:var(--accent);border-color:var(--accent);color:var(--on-accent)}}
-.stop{border-radius:2px;box-shadow:none;font-size:12px;padding:9px 16px;letter-spacing:.02em}
-.stop:hover:not(:disabled){background:#4c2fa8;border-color:#4c2fa8;color:#fff}
+.stop{border-radius:2px;box-shadow:none;font-size:12px;padding:9px 16px;letter-spacing:.02em;border-color:var(--violet)}
+.stop:hover:not(:disabled){background:#4c2fa8;border-color:var(--violet);color:#fff}
 
 /* ---- shell: a top bar instead of a sidebar ---- */
 .app{flex-direction:column}
@@ -98,7 +98,8 @@ button.link{color:var(--accent);font:11px var(--mono);font-weight:400}
 .prom-note{background:var(--paper-2);border-radius:0;color:var(--ink-2)}
 .prom-chart{border:0;border-top:1px solid var(--rule);border-radius:0;padding:10px 0}
 .prom-chart figcaption{font:10px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);font-weight:400}
-.recharts-text,.recharts-legend-item-text{fill:var(--ink-2)!important;color:var(--ink-2)!important}
+.recharts-text{fill:var(--ink-2)}
+.recharts-legend-item-text{color:var(--ink-2)!important}
 .recharts-default-tooltip{background:var(--paper-2)!important;border:1px solid var(--rule)!important;color:var(--ink)!important}
 
 /* ---- the score is the headline ---- */

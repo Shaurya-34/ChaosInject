@@ -187,7 +187,7 @@ async function warmColours(page:Page):Promise<string[]>{
   });
 }
 
-test('a run with a leftover fault, findings, proposals and charts uses cold colours only',async({page})=>{
+test('a run with a leftover fault, findings, proposals and charts uses only the theme colours',async({page})=>{
   await mockChaos(page,{...idle,fault_active:true,fault:{target:'hotel-sandbox-geo-1',fault:'container_stop'}},undefined,{status:200,body:availableMetrics});await openChaosRuns(page);
   await page.getByRole('row',{name:/hotel_geo_stop/}).click();
   await expect(page.getByLabel('Prometheus metrics').getByLabel(/Target last seen/)).toBeVisible();
@@ -195,7 +195,7 @@ test('a run with a leftover fault, findings, proposals and charts uses cold colo
   expect(await warmColours(page)).toEqual([]);
 });
 
-test('the live run panel uses cold colours only',async({page})=>{
+test('the live run panel uses only the theme colours',async({page})=>{
   await mockChaos(page,{...idle,running:true,experiment:'hotel_geo_stop',pid:1,fault_active:true,fault:{target:'hotel-sandbox-geo-1',fault:'container_stop'},log_tail:['  [baseline] ok   status=200    42.1ms']});await openChaosRuns(page);
   await expect(page.getByRole('button',{name:'Stop run'})).toBeVisible();
   expect(await warmColours(page)).toEqual([]);
@@ -397,7 +397,7 @@ async function sticksOut(page:Page):Promise<string[]>{
   });
 }
 
-test('every problem at once is listed, uses cold colours and fits a phone screen',async({page})=>{
+test('every problem at once is listed, uses only the theme colours and fits a phone screen',async({page})=>{
   await mockChaos(page,{...idle,execution_enabled:false},undefined,undefined,nullScore,noFindings,undefined,
     env({execution_enabled:false,runs_saved:0,sandbox:{url:'http://127.0.0.1:5000/hotels',reachable:false,status:null},prometheus:{reachable:false,status:null}}),[]);
   await page.setViewportSize({width:390,height:844});await openChaosRuns(page);
