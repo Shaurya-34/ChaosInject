@@ -35,6 +35,36 @@ def test_setup_stops_before_creating_a_venv_on_an_unsupported_python(dev, monkey
         dev.setup(None)
 
 
+def test_a_failed_install_removes_the_half_made_venv_so_the_next_try_starts_clean(dev, monkeypatch, tmp_path):
+    monkeypatch.setattr(dev, "ROOT", tmp_path)
+    monkeypatch.setattr(dev, "VENV_PY", tmp_path / ".venv" / "python")
+    monkeypatch.setattr(dev, "python_problem", lambda *a: None)
+
+    def fake_run(*args, **kw):
+        if args[1] == "-m" and args[2] == "venv":
+            (tmp_path / ".venv").mkdir()
+            (tmp_path / ".venv" / "python").write_text("")
+            return
+        raise dev.subprocess.CalledProcessError(1, [str(a) for a in args])
+
+    monkeypatch.setattr(dev, "run", fake_run)
+    with pytest.raises(SystemExit, match="python3-venv") as exit_info:
+        dev.setup(None)
+    assert "half-made .venv was removed" in str(exit_info.value) and not (tmp_path / ".venv").exists()
+
+
+def test_a_failure_in_an_existing_venv_is_reported_without_deleting_it(dev, monkeypatch, tmp_path):
+    (tmp_path / ".venv").mkdir()
+    (tmp_path / ".venv" / "python").write_text("")
+    monkeypatch.setattr(dev, "ROOT", tmp_path)
+    monkeypatch.setattr(dev, "VENV_PY", tmp_path / ".venv" / "python")
+    monkeypatch.setattr(dev, "python_problem", lambda *a: None)
+    monkeypatch.setattr(dev, "run", lambda *a, **k: (_ for _ in ()).throw(dev.subprocess.CalledProcessError(1, [str(x) for x in a])))
+    with pytest.raises(SystemExit, match="Could not set up"):
+        dev.setup(None)
+    assert (tmp_path / ".venv").exists()
+
+
 def test_the_readme_names_the_supported_pythons():
     text = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "Python 3.11 to 3.13" in text and "3.14 does not work yet" in text

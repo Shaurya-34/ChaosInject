@@ -21,6 +21,7 @@ import os
 import platform
 import re
 import secrets
+import shutil
 import signal
 import socket
 import subprocess
@@ -229,9 +230,17 @@ def setup(_):
     problem = python_problem()
     if problem and not VENV_PY.exists():  # an existing venv was built by whatever Python made it
         raise SystemExit(problem)
-    if not VENV_PY.exists():
-        run(sys.executable, "-m", "venv", ROOT / ".venv")
-    run(VENV_PY, "-m", "pip", "install", "-r", ROOT / "requirements.lock")
+    made = not VENV_PY.exists()
+    try:
+        if made:
+            run(sys.executable, "-m", "venv", ROOT / ".venv")
+        run(VENV_PY, "-m", "pip", "install", "-r", ROOT / "requirements.lock")
+    except subprocess.CalledProcessError as error:
+        if made:  # a half-made venv would be reused by the next try, whichever Python that uses
+            shutil.rmtree(ROOT / ".venv", ignore_errors=True)
+        raise SystemExit(f"Could not set up the Python environment ({error.cmd[1:4]} exited {error.returncode}); see the output above. "
+                         "On Debian/Ubuntu `python3 -m venv` needs `sudo apt install python3-venv`. "
+                         + ("The half-made .venv was removed, so the next try starts clean." if made else ""))
     run(VENV_PY, "-m", "pip", "install", "--no-deps", "-e", ROOT)
     run(NPM, "ci", cwd=ROOT / "frontend")
     run(NPM, "run", "build", cwd=ROOT / "frontend")
