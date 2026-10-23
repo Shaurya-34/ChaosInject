@@ -164,5 +164,8 @@ python -m unittest discover -s tests -p 'test_hotel_setup.py' -v
 ```
 
 **Verified end to end:** all 7 smoke checks pass on Windows 11 / Intel (amd64,
-Docker Desktop) from a fresh clone ([PR #30](https://github.com/Shaurya-34/Hackathon/pull/30)).
-The stack also runs on Apple Silicon (M2, M5) with amd64 emulation.
+Docker Desktop) from a fresh clone. The whole README path, with real experiments, also ran on a clean
+Ubuntu 24.04 / amd64 machine (a GitHub Codespace); see
+[evidence/codespace-2026-10-23](evidence/codespace-2026-10-23/README.md). Apple Silicon runs the stack
+under amd64 emulation (a baseline was captured on one, see [baseline.md](baseline.md)); it was not retested for
+every later change.

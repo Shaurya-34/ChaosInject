@@ -34,7 +34,7 @@ flowchart TB
 
   subgraph Sandbox["Hotel Reservation sandbox · Docker Compose · 24 containers"]
     FE["frontend :5000"]
-    SVC["search · geo · rate · profile<br/>reservation · user · recommendation"]
+    SVC["search · geo · rate · profile · reservation<br/>user · recommendation · review · attractions"]
     DB[("8 × MongoDB<br/>4 × memcached")]
     CO["Consul · Jaeger"]
   end
@@ -127,7 +127,7 @@ sequenceDiagram
 - **Crash recovery.** A marker file exists while a fault is injected. If the controller is killed mid-fault, the next run (or `--recover`, or `POST /recover`) restores the fault first.
 - **One run at a time.** The run lock holds the controller's pid. A lock left by a dead process is taken over, and pid liveness is checked with the Windows API on Windows.
 - **Kill switch.** Ctrl+C, or `POST /active/stop`. The stop writes `results/.stop_request`, which the controller checks before injecting and on every probe.
-- **API isolation.** The controller runs in its own process group, so an API crash or restart doesn't interrupt a restore. I tested this by hard-killing the API mid-fault. Run state comes from the lock file, so it survives an API restart.
+- **API isolation.** The controller runs in its own process group, so an API crash or restart doesn't interrupt a restore. This was tested by hard-killing the API mid-fault. Run state comes from the lock file, so it survives an API restart.
 - **Non-blocking API.** The agent routes run in worker threads, so a slow model call can't stall `/active` or Stop.
 - **AI is advisory only.** The agents output proposals and findings. Intelligence code doesn't import `subprocess` or call Docker, and a unit test checks this. Model rewording is optional: it uses env-configured keys, every number it produces must come from the facts, and it falls back to deterministic text.
 - **Local only.** Every port binds to 127.0.0.1, and the API needs a Bearer token.
@@ -141,4 +141,5 @@ sequenceDiagram
 ## Where it runs
 
 - **Fully verified:** Windows 11 / amd64 with Docker Desktop. That covers all faults, the API kill test and the observability stack.
-- **Apple Silicon:** the hotel app runs on M2 and M5 under amd64 emulation. Network faults (delay, loss) aren't observable through Docker Desktop for Mac's port forwarding, so demo them on amd64.
+- **Linux:** Ubuntu 24.04 / amd64 on a clean GitHub Codespace ran the README path, container stop, network delay and the cache fix, with saved runs in [evidence/codespace-2026-10-23](evidence/codespace-2026-10-23/README.md). Packet loss was not run there. Nested Docker setups may need the network setting in [sandbox.md](sandbox.md#shutdown-data-and-troubleshooting).
+- **Apple Silicon:** the hotel app runs under amd64 emulation and a baseline was captured on one (see [baseline.md](baseline.md)). Network faults (delay, loss) aren't observable through Docker Desktop for Mac's port forwarding, so run them on amd64.

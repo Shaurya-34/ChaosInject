@@ -35,3 +35,5 @@ Dependency licenses remain with their respective packages.
 
 3. TeX Gyre Heros (frontend/src/fonts/), a free Helvetica-style typeface by the GUST e-foundry, used under the GUST Font License.
    https://www.gust.org.pl/projects/e-foundry/tex-gyre
+   The licence text is frontend/src/fonts/GUST-FONT-LICENSE.txt; it grants the use under the LaTeX Project Public
+   License 1.3c or later (https://www.latex-project.org/lppl.txt). The font files are unmodified.

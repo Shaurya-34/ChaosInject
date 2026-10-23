@@ -1,4 +1,4 @@
-# Safety controller (#8) and results store (#9)
+# Safety rules and the results store
 
 Both live in `chaos/hooks.py` and are called by `chaos/controller.py`.
 

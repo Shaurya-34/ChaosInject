@@ -104,7 +104,7 @@ Checked live: a `hotel_rate_loss` run recorded with the stack up returned all 7 
 
 ## Verified
 
-On Windows 11 (amd64, Docker Desktop, containerd image store), I ran `hotel_rate_loss` with all three targets up:
+On Windows 11 (amd64, Docker Desktop, containerd image store), `hotel_rate_loss` was run with all three targets up:
 
 - `chaos_fault_active` went 0 → 1.
 - `chaos_probe_latency_ms` went from about 20 ms to about 2000 ms.
