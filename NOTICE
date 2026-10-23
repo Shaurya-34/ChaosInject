@@ -29,3 +29,6 @@ This repository combines two projects:
 
 DeathStarBench (Apache-2.0) is fetched at setup time by sandbox/hotel/prepare.py and is not vendored.
 Dependency licenses remain with their respective packages.
+
+3. TeX Gyre Heros (frontend/src/fonts/), a free Helvetica-style typeface by the GUST e-foundry, used under the GUST Font License.
+   https://www.gust.org.pl/projects/e-foundry/tex-gyre
