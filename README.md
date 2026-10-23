@@ -19,6 +19,7 @@ always restores the fault, and ranks the weaknesses it found.
 | See which services are tested | [Services under test](#services-under-test) and [docs/hotel-reservation-dependencies.md](docs/hotel-reservation-dependencies.md) |
 | See the experiments | [Experiments](#experiments) |
 | See what it found and fixed | [What it found](#what-it-found) and [docs/cache-fix.md](docs/cache-fix.md) |
+| See it work on a clean machine | [docs/evidence/codespace-2026-10-23](docs/evidence/codespace-2026-10-23/README.md): logs and saved runs from a new Linux machine |
 | Understand the resilience score | [docs/resilience-score.md](docs/resilience-score.md) |
 | Check what keeps it safe | [Safety](#safety) and [docs/SAFETY.md](docs/SAFETY.md) |
 | Turn on LLM explanations | [docs/llm.md](docs/llm.md) |

@@ -1,0 +1,148 @@
+{
+  "experiment": {
+    "name": "hotel-geo-stop",
+    "target": "hotel-sandbox-geo-1",
+    "fault": "container_stop",
+    "duration_s": 20,
+    "probe_url": "http://127.0.0.1:5000/hotels?inDate=2015-04-09&outDate=2015-04-10&lat=38.0235&lon=-122.095",
+    "baseline_samples": 5,
+    "interval_s": 1
+  },
+  "policy": {
+    "allowed_targets": [
+      "chaos-dummy-web",
+      "hotel-sandbox-memcached-rate-1",
+      "hotel-sandbox-geo-1",
+      "hotel-sandbox-rate-1",
+      "hotel-sandbox-memcached-profile-1",
+      "hotel-sandbox-memcached-reserve-1"
+    ],
+    "allowed_faults": [
+      "container_stop",
+      "network_delay",
+      "packet_loss"
+    ],
+    "max_duration_s": 60,
+    "hard_timeout_s": 120,
+    "recovery_timeout_s": 30,
+    "window_size": 10,
+    "min_samples": 3,
+    "max_error_rate": 0.5,
+    "max_consecutive_failures": 5,
+    "max_latency_ms": 2000,
+    "latency_multiplier": 5.0,
+    "latency_floor_ms": 200
+  },
+  "baseline": [
+    {
+      "t": 1792765102.0992794,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 34.7
+    },
+    {
+      "t": 1792765103.1066222,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 6.5
+    },
+    {
+      "t": 1792765104.1138237,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 7.0
+    },
+    {
+      "t": 1792765105.1195464,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 5.5
+    },
+    {
+      "t": 1792765106.125491,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 5.8
+    }
+  ],
+  "during": [
+    {
+      "t": 1792765107.3603134,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 1.6
+    },
+    {
+      "t": 1792765108.3626077,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.0
+    },
+    {
+      "t": 1792765109.3644466,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 1.6
+    },
+    {
+      "t": 1792765110.3663692,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 1.7
+    },
+    {
+      "t": 1792765111.3683603,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 1.7
+    }
+  ],
+  "recovery": [
+    {
+      "t": 1792765111.5589569,
+      "ok": false,
+      "status": 500,
+      "latency_ms": 2.5
+    },
+    {
+      "t": 1792765112.564798,
+      "ok": true,
+      "status": 200,
+      "latency_ms": 5.7
+    }
+  ],
+  "stop_reason": "safety: 5 consecutive failed probes (limit 5)",
+  "recovered": true,
+  "recovery_s": 1.01,
+  "fault_started": 1792765107.1257203,
+  "fault_ended": 1792765111.5564206,
+  "run_id": "20261023-141832-hotel-geo-stop-091076",
+  "schema_version": 1,
+  "saved_at": 1792765112.5651298,
+  "summary": {
+    "baseline": {
+      "count": 5,
+      "failures": 0,
+      "error_rate": 0.0,
+      "p50_ms": 6.5,
+      "p95_ms": 34.7,
+      "max_ms": 34.7
+    },
+    "during": {
+      "count": 5,
+      "failures": 5,
+      "error_rate": 1.0,
+      "p50_ms": null,
+      "p95_ms": null,
+      "max_ms": null
+    },
+    "recovery": {
+      "count": 2,
+      "failures": 1,
+      "error_rate": 0.5,
+      "p50_ms": 5.7,
+      "p95_ms": 5.7,
+      "max_ms": 5.7
+    }
+  }
+}

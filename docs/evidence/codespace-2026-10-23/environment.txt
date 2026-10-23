@@ -1,0 +1,27 @@
+date: Fri Oct 23 13:53:12 UTC 2026
+commit: 7eb4413 Theme polish from Gautham's review: STOP edge contrast, score legend and tones, scoped chart text rule, test titles (#40)
+PRETTY_NAME="Ubuntu 24.04.5 LTS"
+NAME="Ubuntu"
+x86_64
+python3: Python 3.14.2
+3.13.8 3.14.2 current 
+node: v24.21.0
+Docker version 29.8.0-1, build 88096ef00576baf72a9cb45caa45c0544c40e0a7
+Docker Compose version v5.5.1
+overlay          32G   12G   19G  39% /
+4
+Mem:              15           1           0           0          14          14
+images before: 0
+images after: 0
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          0         0         0B        0B
+Containers      0         0         0B        0B
+Local Volumes   0         0         0B        0B
+Build Cache     0         0         0B        0B
+images after: 7
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          7         7         4.961GB   0B (0%)
+Containers      24        15        131.1kB   36.86kB (28%)
+Local Volumes   18        18        2.519GB   0B (0%)
+Build Cache     23        0         1.719GB   26.85MB
+overlay          32G   20G   11G  65% /

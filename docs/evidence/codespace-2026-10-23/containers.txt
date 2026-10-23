@@ -1,0 +1,15 @@
+hotel-sandbox-consul-1 Up 5 minutes (healthy)
+hotel-sandbox-frontend-1 Up 5 minutes
+hotel-sandbox-jaeger-1 Up 5 minutes
+hotel-sandbox-memcached-profile-1 Up 5 minutes
+hotel-sandbox-memcached-rate-1 Up 5 minutes
+hotel-sandbox-memcached-reserve-1 Up 5 minutes
+hotel-sandbox-memcached-review-1 Up 5 minutes
+hotel-sandbox-mongodb-attractions-1 Up 5 minutes (healthy)
+hotel-sandbox-mongodb-geo-1 Up 5 minutes (healthy)
+hotel-sandbox-mongodb-profile-1 Up 5 minutes (healthy)
+hotel-sandbox-mongodb-rate-1 Up 5 minutes (healthy)
+hotel-sandbox-mongodb-recommendation-1 Up 5 minutes (healthy)
+hotel-sandbox-mongodb-reservation-1 Up 5 minutes (healthy)
+hotel-sandbox-mongodb-review-1 Up 5 minutes (healthy)
+hotel-sandbox-mongodb-user-1 Up 5 minutes (healthy)
