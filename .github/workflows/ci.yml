@@ -18,8 +18,8 @@ jobs:
       - run: python -m venv .venv && .venv/bin/python -m pip install -r requirements.lock && .venv/bin/python -m pip install --no-deps -e .
       - run: .venv/bin/python -m pytest -q
       - run: .venv/bin/python scripts/export_contracts.py --check
-      - run: npm ci && npm run types && npm run build
+      - run: npm ci && npm run build
         working-directory: frontend
-      - run: git diff --exit-code -- contracts/v1 frontend/src/generated.ts
+      - run: git diff --exit-code -- contracts/v1
       - run: npx playwright install --with-deps chromium && npm test
         working-directory: frontend

@@ -10,7 +10,6 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app.adapters.fixtures import fixture_ports
 from app.api import chaos_runs
 from app.api.config import Settings
 from app.intelligence import injection_agent, llm_transport as lt, monitoring_agent
@@ -391,7 +390,7 @@ TOKEN = "t" * 40
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(hooks, "RESULTS_DIR", tmp_path)
     hooks.save_result({k: v for k, v in record(failed=10).items() if k not in ("run_id", "saved_at", "summary")})
-    with TestClient(create_app(Settings(operator_token=TOKEN), fixture_ports()), headers={"Authorization": "Bearer " + TOKEN}) as c:
+    with TestClient(create_app(Settings(operator_token=TOKEN)), headers={"Authorization": "Bearer " + TOKEN}) as c:
         yield c
 
 

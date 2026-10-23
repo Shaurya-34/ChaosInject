@@ -10,11 +10,11 @@ This repository combines two projects:
    imported at commit 9d0a0734df14fbbf9c7182366a0d0bce59e09839.
    Authors: Sachin Bhat (ssaaach), Gautham Poornachandran (Gauthamop), Navya (Navya1801),
    Thoshitha Kolisetty, and the Bosch Resilience AI team.
-   Paths: backend/, contracts/, frontend/, fixtures/, scripts/, .github/,
-   tests/contracts/, tests/integration/, tests/intelligence/, tests/conftest.py,
-   tests/test_demo_runtime_*.py, pyproject.toml, requirements.txt, requirements.lock.
-   (Its original docs, docs/ai-chaos-pilot/, and the demo scripts and platform package have since been removed
-   and remain in the git history.)
+   Paths: backend/, contracts/, frontend/, scripts/, .github/, tests/intelligence/, pyproject.toml,
+   requirements.txt, requirements.lock.
+   (Parts of this import that ChaosInject does not use have since been removed and remain in the git history:
+   its original docs (docs/ai-chaos-pilot/), the demo scripts, the platform package, the older API with its
+   adapters, runtime guard, contract models, fixtures and the diagnosis and planner modules, and their tests.)
 
    (The telemetry package by Navya, backend/app/telemetry/, scripts/telemetry/ and tests/telemetry/, was part of this
    import and has since been removed because ChaosInject does not use it. It remains in the git history.)

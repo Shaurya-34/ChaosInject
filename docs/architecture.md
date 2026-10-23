@@ -135,7 +135,7 @@ sequenceDiagram
 ## Data contracts
 
 - **Run record:** [`contracts/run.schema.json`](../contracts/run.schema.json), validated in tests with `jsonschema`.
-- **API types:** `contracts/v1/openapi.json` generates `frontend/src/generated.ts`. CI rejects drift between them.
+- **API:** `contracts/v1/openapi.json` is generated from the app by `scripts/export_contracts.py`. CI rejects drift.
 - **Run metrics:** described in [observability.md](observability.md#api-metrics-for-a-saved-run).
 
 ## Where it runs

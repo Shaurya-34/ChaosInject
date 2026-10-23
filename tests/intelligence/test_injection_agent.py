@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.adapters.fixtures import fixture_ports
 from app.api import chaos_runs
 from app.api.config import Settings
 from app.intelligence import injection_agent as agent
@@ -177,7 +176,7 @@ TOKEN = "t" * 40
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(hooks, "RESULTS_DIR", tmp_path)
-    app = create_app(Settings(operator_token=TOKEN), fixture_ports())
+    app = create_app(Settings(operator_token=TOKEN))
     with TestClient(app, headers={"Authorization": "Bearer " + TOKEN}) as c:
         yield c
 

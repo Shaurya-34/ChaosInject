@@ -3,7 +3,7 @@
 AI-driven chaos engineering for a cloud-native app. Merged from two repos (see NOTICE):
 
 - **Execution core** (from Shaurya-34/Hackathon): `sandbox/hotel` (DeathStarBench Hotel Reservation on Docker Compose), `chaos/` (controller, faults, safety rules, results), `experiments/`, `docs/`.
-- **API, dashboard, intelligence** (from ssaaach/AI-Chaos-Pilot): `backend/` (FastAPI), `frontend/` (React + Vite), `contracts/`, `fixtures/`. Its original docs were removed and remain in the git history.
+- **API, dashboard, intelligence** (from ssaaach/AI-Chaos-Pilot): `backend/` (FastAPI chaos API, the two agents, the score), `frontend/` (React + Vite), `contracts/`. The unused parts of that import were removed and remain in the git history.
 
 Core rule: **the controller enforces safety, not the AI.** AI output is a proposal that the controller validates against `chaos/policy.json`; AI code never runs Docker or shell commands.
 

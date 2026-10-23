@@ -57,8 +57,8 @@ The full OpenAPI contract is in [`contracts/v1/openapi.json`](../contracts/v1/op
 ```bash
 .venv/Scripts/python -m pytest -q                       # .venv/bin/python on Linux/macOS
 .venv/Scripts/python scripts/export_contracts.py --check
-cd frontend && npm run types && npm run build && npm test
+cd frontend && npm run build && npm test
 ```
 
 CI runs all of these on every pull request, and `main` requires it to pass. After changing the API,
-run `python scripts/export_contracts.py` and `npm run types` in `frontend/` and commit the result.
+run `python scripts/export_contracts.py` and commit the result.

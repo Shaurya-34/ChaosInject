@@ -1,8 +1,4 @@
-"""Gautam's intelligence workstream: experiment planner, evidence-grounded diagnosis and (disabled) rollback proposals.
+"""The rule-based agents (injection, monitoring), the resilience score and the optional language-model wording.
 
-``IntelligenceService`` implements ``app.api.ports.IntelligencePort``.
+Nothing here runs Docker or a shell: it reads saved runs and proposes; only ``chaos/controller.py`` changes the system.
 """
-
-from .service import IntelligenceService
-
-__all__ = ["IntelligenceService"]

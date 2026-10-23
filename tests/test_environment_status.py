@@ -8,7 +8,6 @@ import threading
 import pytest
 from fastapi.testclient import TestClient
 
-from app.adapters.fixtures import fixture_ports
 from app.api import chaos_runs
 from app.api.config import Settings
 from app.main import create_app
@@ -25,7 +24,7 @@ def fresh_cache(monkeypatch, tmp_path):
 
 
 def client(enabled=False):
-    app = create_app(Settings(operator_token=TOKEN, chaos_execution_enabled=enabled), fixture_ports())
+    app = create_app(Settings(operator_token=TOKEN, chaos_execution_enabled=enabled))
     return TestClient(app, headers={"Authorization": "Bearer " + TOKEN})
 
 
